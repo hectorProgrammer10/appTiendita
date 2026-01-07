@@ -1,0 +1,49 @@
+# Build generated files
+/build/
+*/build/
+.gradle/
+local.properties
+
+# IDE files
+.idea/
+*.iml
+
+# Log files
+*.log
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Keystore files (NO subas tus llaves privadas)
+*.jks
+*.keystore
+
+# Gradle cache
+.gradle/
+.gradle/*
+
+# Generated files
+bin/
+gen/
+out/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# APK/AAB packages
+*.apk
+*.ap_
+*.aab
+
+# Java/Kotlin bytecode
+*.class
+*.dex
+
+# NDK compiled files
+*.so
+*.o
+*.obj
+
+# Misc
+.cxx/
