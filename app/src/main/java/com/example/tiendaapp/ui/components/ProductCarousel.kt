@@ -32,7 +32,7 @@ fun ProductCarousel(
           horizontalArrangement = Arrangement.spacedBy(16.dp),
           contentPadding = PaddingValues(horizontal = 16.dp)
   ) {
-    items(products) { product ->
+    items(products, key = { it.id }) { product ->
       ProductCard(
           product = product, 
           onClick = { onProductClick(product) },

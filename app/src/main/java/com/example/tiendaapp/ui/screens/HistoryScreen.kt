@@ -88,7 +88,6 @@ fun HistoryScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            // Filter Chips
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,7 +121,6 @@ fun HistoryScreen(
             }
         }
 
-        // Delete All Confirmation
         if (showDeleteAllDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteAllDialog = false },
@@ -225,7 +223,7 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
         ) {
             // Left: Date and Client
             Column(modifier = Modifier.weight(1f)) {
-                val dateFormat = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
+                val dateFormat = remember { SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault()) }
                 Text(
                     text = dateFormat.format(Date(sale.date)),
                     style = MaterialTheme.typography.bodyLarge,

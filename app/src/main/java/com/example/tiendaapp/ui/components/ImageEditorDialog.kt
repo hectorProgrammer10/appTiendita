@@ -33,11 +33,22 @@ fun ImageEditorDialog(
     var text by remember { mutableStateOf("") }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     
-    // Load bitmap
+    // Load bitmap on IO thread
     LaunchedEffect(imageUri) {
-        context.contentResolver.openInputStream(imageUri)?.use { stream ->
-            bitmap = BitmapFactory.decodeStream(stream)
-                ?.copy(Bitmap.Config.ARGB_8888, true) // Make mutable
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            context.contentResolver.openInputStream(imageUri)?.use { stream ->
+                val loadedBitmap = BitmapFactory.decodeStream(stream)
+                    ?.copy(Bitmap.Config.ARGB_8888, true)
+                bitmap = loadedBitmap
+            }
+        }
+    }
+    
+    // Cleanup bitmap when dialog is disposed to prevent memory leaks
+    DisposableEffect(Unit) {
+        onDispose {
+            bitmap?.recycle()
+            bitmap = null
         }
     }
 

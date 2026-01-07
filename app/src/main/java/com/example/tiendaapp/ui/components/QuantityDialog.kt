@@ -36,8 +36,6 @@ import com.example.tiendaapp.domain.model.Product
 @Composable
 fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
     var quantity by remember { mutableStateOf("") }
-    
-    // Auto-focus logic could be added here if needed, but simple is better for now.
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -46,7 +44,6 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -72,7 +69,6 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Input
                 Text(
                     text = "Peso (${if(product.unit == com.example.tiendaapp.domain.model.UnitType.kg) "Kilogramos" else "Piezas"})",
                     style = MaterialTheme.typography.bodySmall,
@@ -91,9 +87,8 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Total Approx Box
-                val parsedQty = quantity.toDoubleOrNull() ?: 0.0
-                val total = parsedQty * product.price
+                val parsedQty by remember { derivedStateOf { quantity.toDoubleOrNull() ?: 0.0 } }
+                val total by remember { derivedStateOf { parsedQty * product.price } }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth()
@@ -113,7 +108,6 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Action
                 Button(
                     onClick = { onConfirm(parsedQty) },
                     enabled = parsedQty > 0,

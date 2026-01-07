@@ -47,9 +47,9 @@ fun PaymentDialog(
     var paymentType by remember { mutableStateOf(PaymentType.contado) }
     var clientName by remember { mutableStateOf("") }
 
-    val amount = amountReceived.toDoubleOrNull() ?: 0.0
-    val change = if (amount > total) amount - total else 0.0
-    val isValid = if (paymentType == PaymentType.contado) amount >= total else clientName.isNotBlank()
+    val amount by remember { derivedStateOf { amountReceived.toDoubleOrNull() ?: 0.0 } }
+    val change by remember { derivedStateOf { if (amount > total) amount - total else 0.0 } }
+    val isValid by remember { derivedStateOf { if (paymentType == PaymentType.contado) amount >= total else clientName.isNotBlank() } }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(

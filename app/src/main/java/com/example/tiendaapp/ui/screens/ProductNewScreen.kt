@@ -159,7 +159,6 @@ fun ProductNewScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Image Picker
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,7 +198,6 @@ fun ProductNewScreen(
                 }
             }
             
-            // Name Input
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
@@ -209,9 +207,7 @@ fun ProductNewScreen(
                 singleLine = true
             )
 
-            // Price and Unit Row
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Price Input
                 OutlinedTextField(
                     value = price,
                     onValueChange = { price = it },
@@ -223,7 +219,6 @@ fun ProductNewScreen(
                     singleLine = true
                 )
 
-                // Unit Toggle (Segmented Button style simulation)
                 Row(
                     modifier = Modifier
                         .weight(1f)
@@ -266,7 +261,6 @@ fun ProductNewScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Save Button
             Button(
                 onClick = {
                     if (name.isNotBlank() && price.isNotBlank()) {

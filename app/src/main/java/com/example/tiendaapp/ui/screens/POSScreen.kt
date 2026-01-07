@@ -2,6 +2,7 @@ package com.example.tiendaapp.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -35,31 +36,13 @@ fun POSScreen(
     val products by viewModel.productsUiState.collectAsState()
     val context = LocalContext.current
 
-    // Effects
-    LaunchedEffect(productIdToSelect, products) {
-        if (productIdToSelect != null && products.isNotEmpty()) {
-            val product = products.find { it.id == productIdToSelect }
-            if (product != null) {
-                // Auto-select product logic handled via local state or VM
-                // For now, we can just trigger the dialog if we want, or add directly.
-                // To keep it simple and clean, let's just use the VM to add 1 unit or show dialog.
-                // Since showQuantityDialog is local state, we'd need to lift it or expose an event.
-                // Simpler approach: Just scroll to it or let user click. 
-                // But USER asked "llevar a vender", implying adding it.
-                // As a quick UX, let's auto-open the dialog for that product.
-            }
-        }
-    }
-
-    // Dialog state
     var showQuantityDialog by remember { mutableStateOf(false) }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var selectedProductForCart by remember { mutableStateOf<com.example.tiendaapp.domain.model.Product?>(null) }
     var showMenu by remember { mutableStateOf(false) }
 
-    // Auto-selection once products are loaded
     LaunchedEffect(productIdToSelect, products) {
-        if (productIdToSelect != null && products.isNotEmpty() && selectedProductForCart == null) {
+        if (productIdToSelect != null && products.isNotEmpty()) {
              val product = products.find { it.id == productIdToSelect }
              if (product != null) {
                  selectedProductForCart = product
@@ -67,6 +50,7 @@ fun POSScreen(
              }
         }
     }
+
 
     Scaffold(
         topBar = {
@@ -81,7 +65,6 @@ fun POSScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Product Selector
             Text("Productos disponibles", modifier = Modifier.padding(16.dp))
             ProductCarousel(
                 products = products,
@@ -90,18 +73,17 @@ fun POSScreen(
                     showQuantityDialog = true
                 },
                 onProductLongClick = { },
-                onAddNewProduct = { /* No action in POS for new product, but param required. Empty or navigate? */
-                    // Usually you don't create products inside POS. Just pass empty or ignore.
-                    // Or maybe allow quick add? Let's just pass empty for now as it's not requested.
-                }
+                onAddNewProduct = { }
             )
 
             HorizontalDivider()
 
             // Cart Items
             LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                items(uiState.cartItems.size) { index ->
-                    val item = uiState.cartItems[index]
+                itemsIndexed(
+                    items = uiState.cartItems,
+                    key = { index, item -> "${item.productId}_${index}" }
+                ) { index, item ->
                     SaleItemCard(
                         item = item, 
                         onRemove = { viewModel.removeFromCart(index) }
