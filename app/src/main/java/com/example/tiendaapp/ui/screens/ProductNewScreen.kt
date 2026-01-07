@@ -233,8 +233,10 @@ fun ProductNewScreen(
                         .padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val selectedColor = MaterialTheme.colorScheme.primaryContainer
+                    val selectedColor = MaterialTheme.colorScheme.primary
                     val unselectedColor = Color.Transparent
+                    val textSelectedColor = MaterialTheme.colorScheme.onTertiary
+                    val textUnselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                     
                     Box(
                         modifier = Modifier
@@ -245,7 +247,7 @@ fun ProductNewScreen(
                             .clickable { unit = UnitType.kg },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Kg", color = MaterialTheme.colorScheme.onSurface)
+                        Text("Kg", color = if(unit == UnitType.kg) textSelectedColor else textUnselectedColor)
                     }
                     
                     Box(
@@ -257,7 +259,7 @@ fun ProductNewScreen(
                             .clickable { unit = UnitType.piece },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Pieza", color = MaterialTheme.colorScheme.onSurface)
+                        Text("Pieza", color = if(unit == UnitType.piece) textSelectedColor else textUnselectedColor)
                     }
                 }
             }
@@ -280,10 +282,10 @@ fun ProductNewScreen(
                          android.widget.Toast.makeText(context, "Completa todos los campos", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 enabled = name.isNotBlank() && price.isNotBlank()
             ) {
-                Text("Guardar Producto")
+                Text("Guardar Producto", style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

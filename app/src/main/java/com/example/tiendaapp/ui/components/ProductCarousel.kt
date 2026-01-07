@@ -50,8 +50,8 @@ fun ProductCarousel(
 fun ProductCard(product: Product, onClick: () -> Unit, onLongClick: () -> Unit) {
   Card(
           modifier = Modifier
-              .width(160.dp)
-              .height(200.dp)
+              .width(206.dp)
+              .height(216.dp)
               .combinedClickable(
                   onClick = onClick,
                   onLongClick = onLongClick

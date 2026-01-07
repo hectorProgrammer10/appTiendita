@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BrowserUpdated
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -69,7 +70,7 @@ fun HistoryScreen(
                             android.widget.Toast.makeText(context, "Error al exportar o no hay datos", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }) {
-                        Icon(Icons.Default.Share, contentDescription = "Exportar")
+                        Icon(Icons.Default.BrowserUpdated, contentDescription = "Exportar")
                     }
                 }
             )
@@ -154,8 +155,8 @@ fun HistoryScreen(
                 title = { Text("Editar Venta") },
                 text = {
                     Column {
-                        Text("Cliente: ${sale.clientName ?: "Anonimo"}")
-                        Text("Total: $${sale.total}")
+                        Text("Cliente: ${sale.clientName ?: "Anonimo"}", style = MaterialTheme.typography.titleMedium)
+                        Text("Total: $${sale.total}", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Cambiar Estado a:")
                         Spacer(modifier = Modifier.height(8.dp))
@@ -165,40 +166,41 @@ fun HistoryScreen(
                                 viewModel.updateSaleStatus(sale.id, PaymentType.contado) 
                                 selectedSaleForEdit = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
                             enabled = sale.paymentType != PaymentType.contado
                         ) {
-                            Text("Contado")
+                            Text("Contado", style = MaterialTheme.typography.titleMedium)
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         Button(
                             onClick = { 
                                 viewModel.updateSaleStatus(sale.id, PaymentType.pendiente)
                                 selectedSaleForEdit = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
                             enabled = sale.paymentType != PaymentType.pendiente
                         ) {
-                            Text("Pendiente")
+                            Text("Pendiente", style = MaterialTheme.typography.titleMedium)
                         }
-                        
+                        Spacer(modifier = Modifier.height(8.dp))                        
                         Button(
                             onClick = { 
                                 viewModel.updateSaleStatus(sale.id, PaymentType.cancelado)
                                 selectedSaleForEdit = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             enabled = sale.paymentType != PaymentType.cancelado
                         ) {
-                            Text("Cancelado")
+                            Text("Cancelado", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 },
                 confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { selectedSaleForEdit = null }) {
-                        Text("Cerrar")
+                        Text("Cerrar", style = MaterialTheme.typography.titleMedium)
                     }
                 }
             )
@@ -212,7 +214,7 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
         onClick = onClick,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 6.dp)
     ) {
         Row(
             modifier = Modifier
@@ -226,18 +228,18 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
                 val dateFormat = SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault())
                 Text(
                     text = dateFormat.format(Date(sale.date)),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.outline
                 )
                 Text(
                     text = sale.clientName?.takeIf { it.isNotBlank() } ?: "----",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                 )
                 Text(
                     text = "${sale.items.sumOf { it.quantity.toInt() }} productos", 
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
             
@@ -245,7 +247,7 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "$${String.format("%.2f", sale.total)}",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
@@ -264,7 +266,7 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
                     Text(
                         text = sale.paymentType.name.uppercase(),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = statusColor
                     )
                 }

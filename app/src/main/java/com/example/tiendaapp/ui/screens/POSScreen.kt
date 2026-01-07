@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +121,7 @@ fun POSScreen(
                          horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                          Text("Total", style = MaterialTheme.typography.headlineSmall)
-                         Text("$${String.format("%.2f", uiState.total)}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                         Text("$${String.format("%.2f", uiState.total)}", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
 
                     // Action Buttons Row
@@ -148,7 +149,7 @@ fun POSScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             enabled = uiState.cartItems.isNotEmpty()
                         ) {
-                            Text("Hacer Venta")
+                            Text("Hacer Venta" , style = MaterialTheme.typography.titleMedium)
                         }
 
                         // Clear Cart Button (Right, Teal)

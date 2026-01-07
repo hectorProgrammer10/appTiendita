@@ -76,7 +76,7 @@ fun ImageEditorDialog(
                          if (text.isNotEmpty()) {
                              Text(
                                  text = text,
-                                 color = androidx.compose.ui.graphics.Color.White, // Simplified preview
+                                 color = androidx.compose.ui.graphics.Color.Yellow, // Simplified preview
                                  style = MaterialTheme.typography.displayLarge,
                                  modifier = Modifier.align(Alignment.Center)
                              )
@@ -130,8 +130,8 @@ private fun saveImageWithText(context: Context, originalBitmap: Bitmap, text: St
         
         if (text.isNotEmpty()) {
             val paint = Paint().apply {
-                color = Color.WHITE
-                textSize = workingBitmap.height * 0.1f // 10% of height
+                color = Color.YELLOW
+                textSize = workingBitmap.height * 0.16f // 10% of height
                 textAlign = Paint.Align.CENTER
                 setShadowLayer(10f, 0f, 0f, Color.BLACK)
             }

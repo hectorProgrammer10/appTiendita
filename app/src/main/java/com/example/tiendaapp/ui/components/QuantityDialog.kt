@@ -107,7 +107,7 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
                         text = "$${String.format("%.2f", total)}",
                         color = Color(0xFF00C853), // Green
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.headlineMedium
                     )
                 }
 

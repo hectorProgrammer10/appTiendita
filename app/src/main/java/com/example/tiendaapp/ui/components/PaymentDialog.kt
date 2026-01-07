@@ -159,12 +159,12 @@ fun PaymentDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Cambio:", color = Color.Gray)
+                        Text("Cambio:", color = Color.Gray, style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "$${String.format("%.2f", change)}", 
                             color = Color(0xFF00C853), // Green
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.headlineSmall
                         )
                     }
                 } else {
@@ -193,7 +193,7 @@ fun PaymentDialog(
                          disabledContainerColor = Color.LightGray
                     )
                 ) {
-                    Text("Confirmar Venta", fontWeight = FontWeight.Bold)
+                    Text("Confirmar Venta", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
