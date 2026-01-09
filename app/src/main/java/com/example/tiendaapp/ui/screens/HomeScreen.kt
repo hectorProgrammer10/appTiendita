@@ -1,10 +1,13 @@
 package com.example.tiendaapp.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
@@ -21,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +42,15 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.homeUiState.collectAsState()
     var productToDelete by remember { mutableStateOf<com.example.tiendaapp.domain.model.Product?>(null) }
+    
+    // Store name state with SharedPreferences
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("tienda_prefs", Context.MODE_PRIVATE) }
+    var storeName by remember { mutableStateOf(prefs.getString("store_name", "Tiendita") ?: "Tiendita") }
+    var showEditNameDialog by remember { mutableStateOf(false) }
+    var editingName by remember { mutableStateOf("") }
+
+    val scrollState = rememberScrollState()
 
     if (productToDelete != null) {
         AlertDialog(
@@ -63,15 +76,51 @@ fun HomeScreen(
         )
     }
 
+    // Edit Store Name Dialog
+    if (showEditNameDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            title = { Text("Nombre de la Tienda") },
+            text = {
+                OutlinedTextField(
+                    value = editingName,
+                    onValueChange = { editingName = it },
+                    label = { Text("Nombre") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (editingName.isNotBlank()) {
+                            storeName = editingName
+                            prefs.edit().putString("store_name", editingName).apply()
+                        }
+                        showEditNameDialog = false
+                    }
+                ) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNameDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
         // Header
         Column(modifier = Modifier.padding(vertical = 24.dp)) {
             Text(
-                text = "Pescadería",
+                text = storeName,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     brush = Brush.horizontalGradient(
@@ -80,7 +129,11 @@ fun HomeScreen(
                             MaterialTheme.colorScheme.secondary
                         )
                     )
-                )
+                ),
+                modifier = Modifier.clickable {
+                    editingName = storeName
+                    showEditNameDialog = true
+                }
             )
             Text(
                 text = "Panel de Administración",
@@ -150,6 +203,7 @@ fun HomeScreen(
                 onClick = onNavigateToHistory
             )
         }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

@@ -3,6 +3,8 @@ package com.example.tiendaapp.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -64,7 +66,12 @@ fun POSScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+        ) {
             Text("Productos disponibles", modifier = Modifier.padding(16.dp))
             ProductCarousel(
                 products = products,
@@ -78,18 +85,24 @@ fun POSScreen(
 
             HorizontalDivider()
 
-            // Cart Items
-            LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                itemsIndexed(
-                    items = uiState.cartItems,
-                    key = { index, item -> "${item.productId}_${index}" }
-                ) { index, item ->
+            // Cart Items - con scroll independiente
+            val cartScrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+                    .verticalScroll(cartScrollState)
+                    .padding(horizontal = 16.dp)
+            ) {
+                uiState.cartItems.forEachIndexed { index, item ->
                     SaleItemCard(
                         item = item, 
                         onRemove = { viewModel.removeFromCart(index) }
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.weight(1f))
 
             // Totals and Checkout
             Surface(
@@ -172,9 +185,7 @@ fun POSScreen(
                     viewModel.checkout(amount, type, client)
                     showPaymentDialog = false
                     Toast.makeText(context, "Venta realizada con éxito", Toast.LENGTH_LONG).show()
-                    // Stay in POS per user request
-                    // User request: "cerrar sin guardar cambios" implies sticking around?
-                    // Usually POS resets. Let's just clear logic in VM.
+
                 }
             )
         }

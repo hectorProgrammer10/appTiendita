@@ -1,8 +1,12 @@
 package com.example.tiendaapp.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,6 +82,34 @@ fun ProductNewScreen(
         }
     }
 
+    // Permission launcher para cámara
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permiso otorgado, lanzar cámara
+            tempImageUri = createTempImageUri()
+            cameraLauncher.launch(tempImageUri!!)
+        } else {
+            Toast.makeText(context, "Se necesita permiso de cámara para tomar fotos", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Función para verificar y solicitar permiso de cámara
+    fun launchCameraWithPermission() {
+        when {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                // Ya tiene permiso, lanzar cámara
+                tempImageUri = createTempImageUri()
+                cameraLauncher.launch(tempImageUri!!)
+            }
+            else -> {
+                // Solicitar permiso
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+    }
+
     if (showImageOptionsDialog) {
         AlertDialog(
             onDismissRequest = { showImageOptionsDialog = false },
@@ -109,9 +141,8 @@ fun ProductNewScreen(
             text = { Text("¿Cómo deseas agregar la imagen?") },
             confirmButton = {
                 TextButton(onClick = {
-                    tempImageUri = createTempImageUri()
-                    cameraLauncher.launch(tempImageUri!!)
                     showImageSourceDialog = false
+                    launchCameraWithPermission()
                 }) {
                     Text("Cámara")
                 }
