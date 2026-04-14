@@ -14,7 +14,6 @@ interface SaleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSale(sale: SaleEntity)
 
-    // Helper query to update status
     @Query("UPDATE sales SET paymentType = :status WHERE id = :id")
     suspend fun updateSaleStatus(id: String, status: com.tienditajhonyboy.tiendaapp.domain.model.PaymentType)
 

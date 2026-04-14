@@ -32,23 +32,48 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tienditajhonyboy.tiendaapp.domain.model.UnitType
 import com.tienditajhonyboy.tiendaapp.ui.viewmodel.AppViewModelProvider
-import com.tienditajhonyboy.tiendaapp.ui.viewmodel.ProductNewViewModel
+import com.tienditajhonyboy.tiendaapp.ui.viewmodel.ProductEditViewModel
 import com.tienditajhonyboy.tiendaapp.util.ImageUtils
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductNewScreen(
-    viewModel: ProductNewViewModel = viewModel(factory = AppViewModelProvider.Factory),
+fun ProductEditScreen(
+    productId: String,
+    viewModel: ProductEditViewModel = viewModel(factory = AppViewModelProvider.Factory),
     onNavigateBack: () -> Unit
 ) {
+    val product by viewModel.productUiState.collectAsState()
+
+    LaunchedEffect(productId) {
+        viewModel.loadProduct(productId)
+    }
+
     var name by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf(UnitType.kg) }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var hasInitialized by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    
+
+    LaunchedEffect(product) {
+        product?.let {
+            if (!hasInitialized) {
+                name = it.name
+                val formattedPrice = if (it.price % 1.0 == 0.0) {
+                    it.price.toInt().toString()
+                } else {
+                    it.price.toString()
+                }
+                price = formattedPrice
+                unit = it.unit
+                imageUri = if (it.image.isNotEmpty()) Uri.parse(it.image) else null
+                hasInitialized = true
+            }
+        }
+    }
+
     val context = LocalContext.current
     var showImageOptionsDialog by remember { mutableStateOf(false) }
     var showImageEditorDialog by remember { mutableStateOf(false) }
@@ -172,7 +197,7 @@ fun ProductNewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nuevo Producto") },
+                title = { Text("Editar Producto") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -292,31 +317,47 @@ fun ProductNewScreen(
 
             Button(
                 onClick = {
-                    if (name.isNotBlank() && price.isNotBlank()) {
+                    if (name.isNotBlank() && price.isNotBlank() && product != null) {
                          isSaving = true
                          coroutineScope.launch {
-                             val finalImagePath = imageUri?.let { ImageUtils.saveAndCompressImage(context, it) } ?: ""
-                             viewModel.saveProduct(
+                             val originalImage = product!!.image
+                             val newImageStr = imageUri?.toString() ?: ""
+                             var finalImagePath = originalImage
+                             
+                             if (newImageStr != originalImage) {
+                                 if (originalImage.isNotEmpty()) {
+                                     ImageUtils.deleteImageFile(originalImage)
+                                 }
+                                 
+                                 if (imageUri != null) {
+                                     finalImagePath = ImageUtils.saveAndCompressImage(context, imageUri!!) ?: ""
+                                 } else {
+                                     finalImagePath = ""
+                                 }
+                             }
+                             
+                             viewModel.updateProduct(
+                                product!!,
                                 name, 
                                 price.toDoubleOrNull() ?: 0.0, 
                                 unit, 
                                 finalImagePath
                              )
                              isSaving = false
-                             android.widget.Toast.makeText(context, "Producto creado exitosamente", android.widget.Toast.LENGTH_SHORT).show()
+                             android.widget.Toast.makeText(context, "Producto actualizado exitosamente", android.widget.Toast.LENGTH_SHORT).show()
                              onNavigateBack()
                          }
-                    } else {
+                    } else if (name.isBlank() || price.isBlank()) {
                          android.widget.Toast.makeText(context, "Completa todos los campos", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                enabled = name.isNotBlank() && price.isNotBlank() && !isSaving
+                enabled = name.isNotBlank() && price.isNotBlank() && product != null && !isSaving
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Guardar Producto", style = MaterialTheme.typography.bodyLarge)
+                    Text("Guardar Cambios", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }

@@ -33,7 +33,6 @@ fun ImageEditorDialog(
     var text by remember { mutableStateOf("") }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     
-    // Load bitmap on IO thread
     LaunchedEffect(imageUri) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             context.contentResolver.openInputStream(imageUri)?.use { stream ->
@@ -44,7 +43,6 @@ fun ImageEditorDialog(
         }
     }
     
-    // Cleanup bitmap when dialog is disposed to prevent memory leaks
     DisposableEffect(Unit) {
         onDispose {
             bitmap?.recycle()
@@ -83,7 +81,6 @@ fun ImageEditorDialog(
                              contentScale = androidx.compose.ui.layout.ContentScale.Fit
                          )
                          
-                         // Visual text overlay preview (Simplified, actual drawing happens on save)
                          if (text.isNotEmpty()) {
                              Text(
                                  text = text,
@@ -135,7 +132,6 @@ fun ImageEditorDialog(
 
 private fun saveImageWithText(context: Context, originalBitmap: Bitmap, text: String): Uri? {
     return try {
-        // Draw text on bitmap
         val workingBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(workingBitmap)
         
@@ -151,7 +147,6 @@ private fun saveImageWithText(context: Context, originalBitmap: Bitmap, text: St
             canvas.drawText(text, x, y, paint)
         }
 
-        // Save to file
         val cacheDir = context.cacheDir
         val file = File(cacheDir, "edited_${System.currentTimeMillis()}.jpg")
         val stream = FileOutputStream(file)

@@ -60,7 +60,6 @@ fun ProductCard(product: Product, onClick: () -> Unit, onLongClick: () -> Unit) 
           shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
   ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // Image
         if (product.image.isNotBlank()) {
             AsyncImage(
                 model = product.image,
@@ -77,7 +76,6 @@ fun ProductCard(product: Product, onClick: () -> Unit, onLongClick: () -> Unit) 
             }
         }
 
-        // Overlay (Blur/Gradient effect)
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

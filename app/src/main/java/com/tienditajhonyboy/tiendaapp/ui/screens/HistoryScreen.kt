@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrowserUpdated
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,9 @@ import com.tienditajhonyboy.tiendaapp.ui.viewmodel.HistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.tienditajhonyboy.tiendaapp.ui.theme.SuccessGreen
+import com.tienditajhonyboy.tiendaapp.ui.theme.WarningOrange
+import com.tienditajhonyboy.tiendaapp.ui.theme.DangerRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,9 +40,22 @@ fun HistoryScreen(
     val currentFilter by viewModel.filter.collectAsState()
     val context = LocalContext.current
 
-    // Dialog States
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var selectedSaleForEdit by remember { mutableStateOf<Sale?>(null) }
+    var showSummaryDialog by remember { mutableStateOf(false) }
+    
+    var showImportDialog by remember { mutableStateOf(false) }
+    var uriToImport by remember { mutableStateOf<android.net.Uri?>(null) }
+    var isImporting by remember { mutableStateOf(false) }
+
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            uriToImport = uri
+            showImportDialog = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -50,6 +67,9 @@ fun HistoryScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { importLauncher.launch("*/*") }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Importar")
+                    }
                     IconButton(onClick = {
                         val file = viewModel.exportHistoryToExcel(context)
                         if (file != null) {
@@ -87,38 +107,111 @@ fun HistoryScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = currentFilter == null,
-                    onClick = { viewModel.setFilter(null) },
-                    label = { Text("Todos") }
-                )
-                FilterChip(
-                    selected = currentFilter == PaymentType.contado,
-                    onClick = { viewModel.setFilter(PaymentType.contado) },
-                    label = { Text("Contado") }
-                )
-                FilterChip(
-                    selected = currentFilter == PaymentType.pendiente,
-                    onClick = { viewModel.setFilter(PaymentType.pendiente) },
-                    label = { Text("Pendiente") }
-                )
-            }
-
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(uiState.saleList) { sale ->
-                    HistoryItemCard(
-                        sale = sale,
-                        onClick = { selectedSaleForEdit = sale }
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = currentFilter == null,
+                        onClick = { viewModel.setFilter(null) },
+                        label = { Text("Todos") }
+                    )
+                    FilterChip(
+                        selected = currentFilter == PaymentType.contado,
+                        onClick = { viewModel.setFilter(PaymentType.contado) },
+                        label = { Text("Contado") }
+                    )
+                    FilterChip(
+                        selected = currentFilter == PaymentType.pendiente,
+                        onClick = { viewModel.setFilter(PaymentType.pendiente) },
+                        label = { Text("Pendiente") }
                     )
                 }
+
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(uiState.saleList) { sale ->
+                        HistoryItemCard(
+                            sale = sale,
+                            onClick = { selectedSaleForEdit = sale }
+                        )
+                    }
+                }
             }
+            
+            if (uiState.saleList.isNotEmpty()) {
+                val totalContado = uiState.saleList.filter { it.paymentType == PaymentType.contado }.sumOf { it.total }
+                ExtendedFloatingActionButton(
+                    onClick = { showSummaryDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(16.dp),
+                    containerColor = SuccessGreen,
+                    contentColor = androidx.compose.ui.graphics.Color.White
+                ) {
+                    Text("$${String.format("%.2f", totalContado)}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+            }
+        }
+
+        if (showSummaryDialog) {
+            val list = uiState.saleList
+            
+            val totalContado = list.filter { it.paymentType == PaymentType.contado }.sumOf { it.total }
+            val countContado = list.filter { it.paymentType == PaymentType.contado }.size
+            
+            val totalPendiente = list.filter { it.paymentType == PaymentType.pendiente }.sumOf { it.total }
+            val countPendiente = list.filter { it.paymentType == PaymentType.pendiente }.size
+            
+            val totalCancelado = list.filter { it.paymentType == PaymentType.cancelado }.sumOf { it.total }
+            val countCancelado = list.filter { it.paymentType == PaymentType.cancelado }.size
+
+            AlertDialog(
+                onDismissRequest = { showSummaryDialog = false },
+                title = { Text("Resumen de Ventas") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            color = SuccessGreen.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Contado ($countContado)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = SuccessGreen)
+                                Text("Total: $${String.format("%.2f", totalContado)}", style = MaterialTheme.typography.titleMedium, color = SuccessGreen)
+                            }
+                        }
+                        Surface(
+                            color = WarningOrange.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Pendiente ($countPendiente)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = WarningOrange)
+                                Text("Total: $${String.format("%.2f", totalPendiente)}", style = MaterialTheme.typography.titleMedium, color = WarningOrange)
+                            }
+                        }
+                        Surface(
+                            color = DangerRed.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("Cancelado ($countCancelado)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = DangerRed)
+                                Text("Total: $${String.format("%.2f", totalCancelado)}", style = MaterialTheme.typography.titleMedium, color = DangerRed)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSummaryDialog = false }) {
+                        Text("Cerrar")
+                    }
+                }
+            )
         }
 
         if (showDeleteAllDialog) {
@@ -144,8 +237,67 @@ fun HistoryScreen(
                 }
             )
         }
+        
+        if (showImportDialog && uriToImport != null) {
+            AlertDialog(
+                onDismissRequest = { if (!isImporting) showImportDialog = false },
+                title = { Text("Opciones de Importación") },
+                text = { 
+                    Column {
+                        Text("¿Qué deseas hacer con los datos a importar de este Excel?")
+                        if (isImporting) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                        } else {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = {
+                                    isImporting = true
+                                    viewModel.importHistoryFromExcel(uriToImport!!, context, replaceData = true, onSuccess = {
+                                        isImporting = false
+                                        showImportDialog = false
+                                        android.widget.Toast.makeText(context, "Datos reemplazados correctamente", android.widget.Toast.LENGTH_SHORT).show()
+                                    }, onError = { err ->
+                                        isImporting = false
+                                        android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                    })
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Reemplazar Actuales (Se borra tu app)")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    isImporting = true
+                                    viewModel.importHistoryFromExcel(uriToImport!!, context, replaceData = false, onSuccess = {
+                                        isImporting = false
+                                        showImportDialog = false
+                                        android.widget.Toast.makeText(context, "Datos adjuntados correctamente", android.widget.Toast.LENGTH_SHORT).show()
+                                    }, onError = { err ->
+                                        isImporting = false
+                                        android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                    })
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Añadir (Conserva ambos)")
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    if (!isImporting) {
+                        TextButton(onClick = { showImportDialog = false }) {
+                            Text("Cancelar")
+                        }
+                    }
+                }
+            )
+        }
 
-        // Edit Status Dialog
         if (selectedSaleForEdit != null) {
             val sale = selectedSaleForEdit!!
             AlertDialog(
@@ -154,7 +306,11 @@ fun HistoryScreen(
                 text = {
                     Column {
                         Text("Cliente: ${sale.clientName ?: "Anonimo"}", style = MaterialTheme.typography.titleMedium)
-                        Text("Total: $${sale.total}", style = MaterialTheme.typography.titleMedium)
+                        if (sale.paymentType == PaymentType.contado) {
+                            Text("Recibido: $${String.format("%.2f", sale.paymentAmount)}", style = MaterialTheme.typography.titleMedium)
+                            Text("Cambio: $${String.format("%.2f", sale.change)}", style = MaterialTheme.typography.titleMedium)
+                        }
+                        Text("Total: $${String.format("%.2f", sale.total)}", style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Productos:", style = MaterialTheme.typography.titleSmall)
                         sale.items.forEach { item ->
@@ -233,7 +389,6 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Date and Client
             Column(modifier = Modifier.weight(1f)) {
                 val dateFormat = remember { SimpleDateFormat("dd/MM/yy HH:mm", Locale.getDefault()) }
                 Text(
@@ -253,7 +408,6 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
                 )
             }
             
-            // Right: Total and Status
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "$${String.format("%.2f", sale.total)}",
@@ -263,9 +417,9 @@ fun HistoryItemCard(sale: Sale, onClick: () -> Unit) {
                 )
                 
                 val statusColor = when(sale.paymentType) {
-                    PaymentType.contado -> androidx.compose.ui.graphics.Color(0xFF4CAF50) // Green
-                    PaymentType.pendiente -> androidx.compose.ui.graphics.Color(0xFFFF9800) // Orange
-                    PaymentType.cancelado -> androidx.compose.ui.graphics.Color(0xFFF44336) // Red
+                    PaymentType.contado -> SuccessGreen
+                    PaymentType.pendiente -> WarningOrange
+                    PaymentType.cancelado -> DangerRed
                 }
                 
                 Surface(

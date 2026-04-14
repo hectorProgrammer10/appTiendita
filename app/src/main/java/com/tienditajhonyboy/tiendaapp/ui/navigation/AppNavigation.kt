@@ -11,11 +11,13 @@ import com.tienditajhonyboy.tiendaapp.ui.screens.HistoryScreen
 import com.tienditajhonyboy.tiendaapp.ui.screens.HomeScreen
 import com.tienditajhonyboy.tiendaapp.ui.screens.POSScreen
 import com.tienditajhonyboy.tiendaapp.ui.screens.ProductNewScreen
+import com.tienditajhonyboy.tiendaapp.ui.screens.ProductEditScreen
 
 enum class AppDestinations(val route: String) {
     Home("home"),
     POS("pos"),
     ProductNew("product_new"),
+    ProductEdit("product_edit"),
     History("history")
 }
 
@@ -36,6 +38,7 @@ fun AppNavigation(
                     navController.navigate(route)
                 },
                 onNavigateToNewProduct = { navController.navigate(AppDestinations.ProductNew.route) },
+                onNavigateToEditProduct = { productId -> navController.navigate("${AppDestinations.ProductEdit.route}/$productId") },
                 onNavigateToHistory = { navController.navigate(AppDestinations.History.route) }
             )
         }
@@ -59,6 +62,16 @@ fun AppNavigation(
         }
         composable(AppDestinations.History.route) {
             HistoryScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = "${AppDestinations.ProductEdit.route}/{productId}",
+            arguments = listOf(navArgument("productId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
+            ProductEditScreen(
+                productId = productId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

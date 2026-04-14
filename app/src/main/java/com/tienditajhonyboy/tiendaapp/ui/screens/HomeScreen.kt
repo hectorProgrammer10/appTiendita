@@ -12,9 +12,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.BrowserUpdated
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import com.tienditajhonyboy.tiendaapp.ui.theme.Slate100
+import com.tienditajhonyboy.tiendaapp.ui.theme.Slate700
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +41,13 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
     onNavigateToPOS: (String?) -> Unit,
     onNavigateToNewProduct: () -> Unit,
+    onNavigateToEditProduct: (String) -> Unit,
     onNavigateToHistory: () -> Unit
 ) {
     val uiState by viewModel.homeUiState.collectAsState()
     var productToDelete by remember { mutableStateOf<com.tienditajhonyboy.tiendaapp.domain.model.Product?>(null) }
+    var selectedProductForAction by remember { mutableStateOf<com.tienditajhonyboy.tiendaapp.domain.model.Product?>(null) }
     
-    // Store name state with SharedPreferences
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("tienda_prefs", Context.MODE_PRIVATE) }
     var storeName by remember { mutableStateOf(prefs.getString("store_name", "Tiendita") ?: "Tiendita") }
@@ -50,6 +55,19 @@ fun HomeScreen(
     var editingName by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
+
+    var showImportProductsDialog by remember { mutableStateOf(false) }
+    var uriToImportProducts by remember { mutableStateOf<android.net.Uri?>(null) }
+    var isImportingProducts by remember { mutableStateOf(false) }
+
+    val importProductsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            uriToImportProducts = uri
+            showImportProductsDialog = true
+        }
+    }
 
     if (productToDelete != null) {
         AlertDialog(
@@ -75,7 +93,44 @@ fun HomeScreen(
         )
     }
 
-    // Edit Store Name Dialog
+    if (selectedProductForAction != null) {
+        AlertDialog(
+            onDismissRequest = { selectedProductForAction = null },
+            title = { Text("Acciones del Producto") },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            val productId = selectedProductForAction?.id
+                            selectedProductForAction = null
+                            if (productId != null) {
+                                onNavigateToEditProduct(productId)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Editar producto", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    TextButton(
+                        onClick = {
+                            productToDelete = selectedProductForAction
+                            selectedProductForAction = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Eliminar producto", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedProductForAction = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
     if (showEditNameDialog) {
         AlertDialog(
             onDismissRequest = { showEditNameDialog = false },
@@ -110,40 +165,130 @@ fun HomeScreen(
         )
     }
 
+    if (showImportProductsDialog && uriToImportProducts != null) {
+        AlertDialog(
+            onDismissRequest = { if (!isImportingProducts) showImportProductsDialog = false },
+            title = { Text("Importar Productos") },
+            text = { 
+                Column {
+                    Text("¿Qué deseas hacer con el catálogo a importar?")
+                    if (isImportingProducts) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    } else {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                isImportingProducts = true
+                                viewModel.importProductsBackup(uriToImportProducts!!, context, replaceData = true, onSuccess = {
+                                    isImportingProducts = false
+                                    showImportProductsDialog = false
+                                    android.widget.Toast.makeText(context, "Catálogo reemplazado", android.widget.Toast.LENGTH_SHORT).show()
+                                }, onError = { err ->
+                                    isImportingProducts = false
+                                    android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                })
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Reemplazar Actuales")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                isImportingProducts = true
+                                viewModel.importProductsBackup(uriToImportProducts!!, context, replaceData = false, onSuccess = {
+                                    isImportingProducts = false
+                                    showImportProductsDialog = false
+                                    android.widget.Toast.makeText(context, "Catálogo adjuntado", android.widget.Toast.LENGTH_SHORT).show()
+                                }, onError = { err ->
+                                    isImportingProducts = false
+                                    android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                })
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Añadir")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                if (!isImportingProducts) {
+                    TextButton(onClick = { showImportProductsDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(16.dp)
     ) {
-        // Header
-        Column(modifier = Modifier.padding(vertical = 24.dp)) {
-            Text(
-                text = storeName,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = storeName,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
                         )
-                    )
-                ),
-                modifier = Modifier.clickable {
-                    editingName = storeName
-                    showEditNameDialog = true
+                    ),
+                    modifier = Modifier.clickable {
+                        editingName = storeName
+                        showEditNameDialog = true
+                    }
+                )
+                Text(
+                    text = "Panel de Administración",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row {
+                IconButton(onClick = { importProductsLauncher.launch("*/*") }) {
+                    Icon(Icons.Default.FileUpload, contentDescription = "Importar Productos")
                 }
-            )
-            Text(
-                text = "Panel de Administración",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                IconButton(onClick = { 
+                    viewModel.exportProductsBackup(context, onSuccess = { file ->
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            file
+                        )
+                        val sendIntent = android.content.Intent().apply {
+                            action = android.content.Intent.ACTION_SEND
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            type = "application/json"
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        val shareIntent = android.content.Intent.createChooser(sendIntent, "Exportar Productos")
+                        context.startActivity(shareIntent)
+                    }, onError = { err -> 
+                        android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                    })
+                }) {
+                    Icon(Icons.Default.BrowserUpdated, contentDescription = "Exportar Productos")
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Products Section
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -163,26 +308,23 @@ fun HomeScreen(
         
 
         
-        // Product Carousel
         ProductCarousel(
             products = uiState.productList,
             onProductClick = { product ->
                 onNavigateToPOS(product.id)
             },
             onProductLongClick = { product ->
-                productToDelete = product
+                selectedProductForAction = product
             },
             onAddNewProduct = onNavigateToNewProduct
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Quick Actions Grid
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Vender Button
             ActionCard(
                 icon = { Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                 label = "Vender",
@@ -192,12 +334,11 @@ fun HomeScreen(
                 onClick = { onNavigateToPOS(null) }
             )
 
-            // History Button
             ActionCard(
-                icon = { Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFF334155)) }, // Slate 700
+                icon = { Icon(Icons.Default.History, contentDescription = null, tint = Slate700) },
                 label = "Historial",
-                backgroundColor = Color(0xFFF1F5F9), // Slate 100/200 equivalent
-                labelColor = Color(0xFF334155),
+                backgroundColor = Slate100,
+                labelColor = Slate700,
                 modifier = Modifier.weight(1f),
                 onClick = onNavigateToHistory
             )

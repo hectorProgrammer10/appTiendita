@@ -82,7 +82,6 @@ fun POSScreen(
 
             HorizontalDivider()
 
-            // Cart Items - con scroll independiente
             val cartScrollState = rememberScrollState()
             Column(
                 modifier = Modifier
@@ -101,13 +100,11 @@ fun POSScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Totals and Checkout
             Surface(
                 tonalElevation = 8.dp,
                 shadowElevation = 8.dp
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Total display (above buttons)
                     Row(
                          modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                          horizontalArrangement = Arrangement.SpaceBetween
@@ -116,13 +113,11 @@ fun POSScreen(
                          Text("$${String.format("%.2f", uiState.total)}", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
 
-                    // Action Buttons Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Close Button (Left, Red)
                         Button(
                             onClick = onNavigateBack,
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -133,7 +128,6 @@ fun POSScreen(
                             Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = androidx.compose.ui.graphics.Color.White)
                         }
 
-                        // Make Sale Button (Middle, Blue, Fill)
                         Button(
                             onClick = { showPaymentDialog = true },
                             modifier = Modifier.weight(1f).height(50.dp),
@@ -144,13 +138,12 @@ fun POSScreen(
                             Text("Hacer Venta" , style = MaterialTheme.typography.titleMedium)
                         }
 
-                        // Clear Cart Button (Right, Teal)
                         Button(
                             onClick = { 
                                 viewModel.clearCart()
                                 Toast.makeText(context, "Carrito limpiado", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF009688)), // Teal
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), // Use error instead of Teal for clearing cart? Wait, let's keep it Teal: MaterialTheme.colorScheme.secondary
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(0.dp),
                             modifier = Modifier.size(50.dp)

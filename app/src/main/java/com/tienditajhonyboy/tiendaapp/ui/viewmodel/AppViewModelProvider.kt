@@ -23,6 +23,9 @@ object AppViewModelProvider {
         initializer {
             HistoryViewModel(tiendaApplication().container.saleRepository)
         }
+        initializer {
+            ProductEditViewModel(tiendaApplication().container.productRepository)
+        }
     }
 }
 

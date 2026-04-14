@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,6 +39,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.tienditajhonyboy.tiendaapp.domain.model.PaymentType
+import com.tienditajhonyboy.tiendaapp.ui.theme.InfoBlue
+import com.tienditajhonyboy.tiendaapp.ui.theme.SuccessGreen
+import com.tienditajhonyboy.tiendaapp.ui.theme.LightBlue
+import com.tienditajhonyboy.tiendaapp.ui.theme.DarkBlue
 
 @Composable
 fun PaymentDialog(
@@ -64,7 +69,6 @@ fun PaymentDialog(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Header
                 Row(
                    modifier = Modifier.fillMaxWidth(),
                    horizontalArrangement = Arrangement.SpaceBetween,
@@ -82,7 +86,6 @@ fun PaymentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Total
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -92,13 +95,12 @@ fun PaymentDialog(
                         text = "$${String.format("%.2f", total)}",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0288D1) // Blue
+                        color = InfoBlue
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Toggle (Segmented Control simulation)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -106,7 +108,7 @@ fun PaymentDialog(
                         .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
                         .clip(RoundedCornerShape(8.dp))
                 ) {
-                    val selectedColor = Color(0xFF0288D1)
+                    val selectedColor = InfoBlue
                     val unselectedColor = Color.White
                     
                     Box(
@@ -148,13 +150,28 @@ fun PaymentDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (paymentType == PaymentType.contado) {
-                    // Removed extra border applied directly to TextField parent Row? No, it was just Floating.
-                    // The previous code had a stray border modifier line. Removed it.
                     OutlinedTextField(
                         value = amountReceived,
                         onValueChange = { amountReceived = it },
                         label = { Text("MONTO RECIBIDO") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { amountReceived = String.format(java.util.Locale.US, "%.2f", total) },
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .height(36.dp)
+                                    .width(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Cantidad Exacta",
+                                    tint = Color.White
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         textStyle = MaterialTheme.typography.headlineSmall
                     )
@@ -168,7 +185,7 @@ fun PaymentDialog(
                         Text("Cambio:", color = Color.Gray, style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "$${String.format("%.2f", change)}", 
-                            color = Color(0xFF00C853), // Green
+                            color = SuccessGreen,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.headlineSmall
                         )
@@ -194,9 +211,7 @@ fun PaymentDialog(
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                         containerColor = Color(0xFF81D4FA), // Light Blue
-                         contentColor = Color(0xFF01579B), // Dark Blue Text
-                         disabledContainerColor = Color.LightGray
+                         containerColor = InfoBlue
                     )
                 ) {
                     Text("Confirmar Venta", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)

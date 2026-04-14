@@ -32,10 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.tienditajhonyboy.tiendaapp.domain.model.Product
+import com.tienditajhonyboy.tiendaapp.ui.theme.SuccessGreen
+import com.tienditajhonyboy.tiendaapp.ui.theme.InfoBlue
 
 @Composable
 fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) -> Unit) {
     var quantity by remember { mutableStateOf("") }
+    var totalText by remember { mutableStateOf("") }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -77,8 +80,13 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
                 
                 OutlinedTextField(
                     value = quantity,
-                    onValueChange = { quantity = it },
+                    onValueChange = { 
+                        quantity = it 
+                        val pQty = it.toDoubleOrNull() ?: 0.0
+                        totalText = if (pQty > 0) String.format(java.util.Locale.US, "%.2f", pQty * product.price) else ""
+                    },
                     modifier = Modifier.fillMaxWidth(),
+                    label = { Text("0", textAlign = TextAlign.Center) },
                     textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center),
                     trailingIcon = { Text(if(product.unit == com.tienditajhonyboy.tiendaapp.domain.model.UnitType.kg) "kg" else "pz") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -87,24 +95,27 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val parsedQty by remember { derivedStateOf { quantity.toDoubleOrNull() ?: 0.0 } }
-                val total by remember { derivedStateOf { parsedQty * product.price } }
+                val parsedQty = quantity.toDoubleOrNull() ?: 0.0
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .border(1.dp, Color.LightGray.copy(alpha=0.5f), RoundedCornerShape(8.dp))
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Total aprox.", color = Color.Gray)
-                    Text(
-                        text = "$${String.format("%.2f", total)}",
-                        color = Color(0xFF00C853), // Green
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                }
+                OutlinedTextField(
+                    value = totalText,
+                    onValueChange = { 
+                        totalText = it 
+                        val pTotal = it.toDoubleOrNull() ?: 0.0
+                        quantity = if (pTotal > 0 && product.price > 0) {
+                            val calculatedQty = pTotal / product.price
+                            val formatted = String.format(java.util.Locale.US, "%.3f", calculatedQty)
+                            formatted.trimEnd('0').trimEnd('.')
+                        } else ""
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Total aprox.") },
+                    leadingIcon = { Text("$", color = SuccessGreen, style = MaterialTheme.typography.headlineSmall) },
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(color = SuccessGreen, textAlign = TextAlign.Center),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    readOnly = product.unit != com.tienditajhonyboy.tiendaapp.domain.model.UnitType.kg
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -114,7 +125,7 @@ fun QuantityDialog(product: Product, onDismiss: () -> Unit, onConfirm: (Double) 
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                         containerColor = Color(0xFF0288D1) // Light Blue
+                         containerColor = InfoBlue
                     )
                 ) {
                     Text("Agregar al Carrito", fontSize = 16.sp)

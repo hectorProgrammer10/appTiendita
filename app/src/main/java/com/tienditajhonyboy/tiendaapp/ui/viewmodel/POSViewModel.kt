@@ -22,7 +22,6 @@ class POSViewModel(
     private val saleRepository: SaleRepository
 ) : ViewModel() {
 
-    // Available products for selection
     val productsUiState: StateFlow<List<Product>> = productRepository.getAllProducts()
         .stateIn(
             scope = viewModelScope,
