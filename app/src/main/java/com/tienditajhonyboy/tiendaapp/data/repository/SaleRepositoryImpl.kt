@@ -16,9 +16,20 @@ class SaleRepositoryImpl(private val dao: SaleDao) : SaleRepository {
         }
     }
 
+    override fun getSalesByWorkspace(workspaceId: String): Flow<List<Sale>> {
+        return dao.getSalesByWorkspace(workspaceId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun getSaleById(id: String): Sale? {
+        return dao.getSaleById(id)?.toDomain()
+    }
+
     override suspend fun insertSale(sale: Sale) {
         dao.insertSale(sale.toEntity())
     }
+
 
     override suspend fun updateSaleStatus(id: String, status: PaymentType) {
         dao.updateSaleStatus(id, status)
@@ -30,5 +41,9 @@ class SaleRepositoryImpl(private val dao: SaleDao) : SaleRepository {
 
     override suspend fun deleteAllSales() {
         dao.deleteAllSales()
+    }
+
+    override suspend fun deleteSalesByWorkspace(workspaceId: String) {
+        dao.deleteSalesByWorkspace(workspaceId)
     }
 }

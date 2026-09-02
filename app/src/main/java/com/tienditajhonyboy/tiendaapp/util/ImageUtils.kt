@@ -48,11 +48,15 @@ object ImageUtils {
                 scaledBitmap.compress(Bitmap.CompressFormat.JPEG, COMPRESS_QUALITY, out)
             }
 
-            if (scaledBitmap != bitmap) {
+            if (scaledBitmap != bitmap && !bitmap.isRecycled) {
                 bitmap.recycle()
+            }
+            if (!scaledBitmap.isRecycled) {
+                scaledBitmap.recycle()
             }
 
             return@withContext Uri.fromFile(file).toString()
+
 
         } catch (e: Exception) {
             e.printStackTrace()

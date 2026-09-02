@@ -3,22 +3,88 @@ package com.tienditajhonyboy.tiendaapp.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tienditajhonyboy.tiendaapp.domain.model.Product
+import com.tienditajhonyboy.tiendaapp.domain.model.Workspace
 import com.tienditajhonyboy.tiendaapp.domain.repository.ProductRepository
+import com.tienditajhonyboy.tiendaapp.domain.repository.WorkspaceRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
-class HomeViewModel(private val productsRepository: ProductRepository) : ViewModel() {
-    val homeUiState: StateFlow<HomeUiState> = productsRepository.getAllProducts()
+class HomeViewModel(
+    private val productsRepository: ProductRepository,
+    private val workspaceRepository: WorkspaceRepository
+) : ViewModel() {
+
+    val workspacesState: StateFlow<List<Workspace>> = workspaceRepository.getAllWorkspaces()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = listOf()
+        )
+
+    val activeWorkspaceIdState: StateFlow<String> = workspaceRepository.getActiveWorkspaceId()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "ws_default"
+        )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val homeUiState: StateFlow<HomeUiState> = workspaceRepository.getActiveWorkspaceId()
+        .flatMapLatest { workspaceId ->
+            productsRepository.getProductsByWorkspace(workspaceId)
+        }
         .map { HomeUiState(it) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = HomeUiState()
         )
+
+    fun selectWorkspace(id: String) {
+        viewModelScope.launch {
+            workspaceRepository.setActiveWorkspaceId(id)
+        }
+    }
+
+    fun createWorkspace(name: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        if (name.isBlank()) {
+            onError("El nombre no puede estar vacío.")
+            return
+        }
+        viewModelScope.launch {
+            val currentWorkspaces = workspaceRepository.getAllWorkspaces().first()
+            if (currentWorkspaces.size >= 3) {
+                onError("Límite alcanzado: Máximo 3 espacios de trabajo.")
+                return@launch
+            }
+            val newId = "ws_${UUID.randomUUID()}"
+            val newWorkspace = Workspace(
+                id = newId,
+                name = name.trim(),
+                createdAt = System.currentTimeMillis()
+            )
+            workspaceRepository.insertWorkspace(newWorkspace)
+            workspaceRepository.setActiveWorkspaceId(newId)
+            onSuccess()
+        }
+    }
+
+    fun updateActiveWorkspaceName(newName: String) {
+        if (newName.isBlank()) return
+        viewModelScope.launch {
+            val activeId = workspaceRepository.getActiveWorkspaceId().first()
+            workspaceRepository.updateWorkspaceName(activeId, newName.trim())
+        }
+    }
+
     fun deleteProduct(product: Product) {
         viewModelScope.launch {
             if (product.image.isNotEmpty()) {
@@ -27,12 +93,13 @@ class HomeViewModel(private val productsRepository: ProductRepository) : ViewMod
             productsRepository.deleteProduct(product.id)
         }
     }
+
     fun exportProductsBackup(context: android.content.Context, onSuccess: (java.io.File) -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val products = homeUiState.value.productList
                 if (products.isEmpty()) {
-                    withContext(kotlinx.coroutines.Dispatchers.Main) { onError("No hay productos para exportar.") }
+                    withContext(kotlinx.coroutines.Dispatchers.Main) { onError("No hay productos para exportar en este espacio.") }
                     return@launch
                 }
                 
@@ -67,6 +134,7 @@ class HomeViewModel(private val productsRepository: ProductRepository) : ViewMod
     fun importProductsBackup(uri: android.net.Uri, context: android.content.Context, replaceData: Boolean, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
+                val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
                 val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("No se pudo leer el archivo")
                 val jsonString = inputStream.bufferedReader().use { it.readText() }
                 
@@ -88,16 +156,24 @@ class HomeViewModel(private val productsRepository: ProductRepository) : ViewMod
                         if (p.image.isNotEmpty()) {
                             com.tienditajhonyboy.tiendaapp.util.ImageUtils.deleteImageFile(p.image)
                         }
-                        productsRepository.deleteProduct(p.id)
                     }
+                    productsRepository.deleteProductsByWorkspace(activeWorkspaceId)
                 }
                 
                 wrapper.products.forEach { dto ->
                     val newImageStr = com.tienditajhonyboy.tiendaapp.util.ImageUtils.saveBase64ToImage(context, dto.image_base64) ?: ""
                     val unitType = try { com.tienditajhonyboy.tiendaapp.domain.model.UnitType.valueOf(dto.unit) } catch (e: Exception) { com.tienditajhonyboy.tiendaapp.domain.model.UnitType.piece }
                     
+                    var productId = if (replaceData && dto.id.isNotBlank()) dto.id else java.util.UUID.randomUUID().toString()
+                    if (!replaceData || productId.isBlank()) {
+                        do {
+                            productId = java.util.UUID.randomUUID().toString()
+                        } while (productsRepository.getProductById(productId) != null)
+                    }
+
                     val product = Product(
-                        id = if (replaceData) dto.id else java.util.UUID.randomUUID().toString(),
+                        id = productId,
+                        workspaceId = activeWorkspaceId,
                         name = dto.name,
                         price = dto.price,
                         unit = unitType,
@@ -133,5 +209,3 @@ data class ProductBackupDTO(
     val image_base64: String?,
     val createdAt: Long
 )
-
-

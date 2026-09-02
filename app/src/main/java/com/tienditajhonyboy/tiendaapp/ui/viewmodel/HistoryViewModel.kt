@@ -5,22 +5,36 @@ import androidx.lifecycle.viewModelScope
 import com.tienditajhonyboy.tiendaapp.domain.model.PaymentType
 import com.tienditajhonyboy.tiendaapp.domain.model.Sale
 import com.tienditajhonyboy.tiendaapp.domain.repository.SaleRepository
+import com.tienditajhonyboy.tiendaapp.domain.repository.WorkspaceRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel() {
+class HistoryViewModel(
+    private val saleRepository: SaleRepository,
+    private val workspaceRepository: WorkspaceRepository
+) : ViewModel() {
 
     private val _filter = MutableStateFlow<PaymentType?>(null) // null = All
     val filter: StateFlow<PaymentType?> = _filter.asStateFlow()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val activeWorkspaceSales: Flow<List<Sale>> = workspaceRepository.getActiveWorkspaceId()
+        .flatMapLatest { workspaceId ->
+            saleRepository.getSalesByWorkspace(workspaceId)
+        }
+
     val historyUiState: StateFlow<HistoryUiState> = 
-        combine(saleRepository.getAllSales(), _filter) { sales, filter ->
+        combine(activeWorkspaceSales, _filter) { sales, filter ->
             val filtered = if (filter == null) sales else sales.filter { it.paymentType == filter }
             HistoryUiState(filtered)
         }
@@ -48,7 +62,8 @@ class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel()
 
     fun clearHistory() {
         viewModelScope.launch {
-            saleRepository.deleteAllSales()
+            val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
+            saleRepository.deleteSalesByWorkspace(activeWorkspaceId)
         }
     }
 
@@ -110,6 +125,7 @@ class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel()
     ) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
+                val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
                 val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("No se pudo leer el archivo")
                 val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook(inputStream)
                 val sheet = workbook.getSheetAt(0)
@@ -138,12 +154,24 @@ class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel()
                 val gson = com.google.gson.Gson()
                 val listType = object : com.google.gson.reflect.TypeToken<List<com.tienditajhonyboy.tiendaapp.domain.model.CartItem>>() {}.type
                 
+                val existingBatchIds = mutableSetOf<String>()
                 for (i in 1..sheet.lastRowNum) {
                     val row = sheet.getRow(i) ?: continue
                     
                     val rawIdCell = row.getCell(0)
                     val rawId = if (rawIdCell?.cellType == org.apache.poi.ss.usermodel.CellType.STRING) rawIdCell.stringCellValue else java.util.UUID.randomUUID().toString()
-                    val id = if (rawId.length == 8) java.util.UUID.randomUUID().toString() else rawId
+                    var saleId = if (rawId.length == 8 || rawId.isBlank()) java.util.UUID.randomUUID().toString() else rawId
+
+                    if (!replaceData) {
+                        while (saleRepository.getSaleById(saleId) != null || existingBatchIds.contains(saleId)) {
+                            saleId = java.util.UUID.randomUUID().toString()
+                        }
+                    } else {
+                        while (existingBatchIds.contains(saleId)) {
+                            saleId = java.util.UUID.randomUUID().toString()
+                        }
+                    }
+                    existingBatchIds.add(saleId)
                     
                     val dateCell = row.getCell(2)
                     val dateTimestampStr = if (dateCell?.cellType == org.apache.poi.ss.usermodel.CellType.STRING) dateCell.stringCellValue else ""
@@ -167,7 +195,8 @@ class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel()
                     
                     newSales.add(
                         Sale(
-                            id = id,
+                            id = saleId,
+                            workspaceId = activeWorkspaceId,
                             items = items,
                             total = total,
                             paymentAmount = montoRecibido,
@@ -183,7 +212,7 @@ class HistoryViewModel(private val saleRepository: SaleRepository) : ViewModel()
                 inputStream.close()
                 
                 if (replaceData) {
-                    saleRepository.deleteAllSales()
+                    saleRepository.deleteSalesByWorkspace(activeWorkspaceId)
                 }
                 
                 newSales.forEach { saleRepository.insertSale(it) }

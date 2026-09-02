@@ -2,6 +2,7 @@ package com.tienditajhonyboy.tiendaapp.domain.model
 
 data class Sale(
     val id: String,
+    val workspaceId: String = "ws_default",
     val items: List<CartItem>,
     val total: Double,
     val paymentAmount: Double,
@@ -10,6 +11,7 @@ data class Sale(
     val clientName: String? = null,
     val date: Long
 )
+
 
 data class CartItem(
     val productId: String,

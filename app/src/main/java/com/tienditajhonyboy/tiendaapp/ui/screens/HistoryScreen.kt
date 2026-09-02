@@ -34,7 +34,8 @@ import com.tienditajhonyboy.tiendaapp.ui.theme.DangerRed
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = viewModel(factory = AppViewModelProvider.Factory),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    initialImportUri: android.net.Uri? = null
 ) {
     val uiState by viewModel.historyUiState.collectAsState()
     val currentFilter by viewModel.filter.collectAsState()
@@ -44,8 +45,8 @@ fun HistoryScreen(
     var selectedSaleForEdit by remember { mutableStateOf<Sale?>(null) }
     var showSummaryDialog by remember { mutableStateOf(false) }
     
-    var showImportDialog by remember { mutableStateOf(false) }
-    var uriToImport by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showImportDialog by remember { mutableStateOf(initialImportUri != null) }
+    var uriToImport by remember { mutableStateOf<android.net.Uri?>(initialImportUri) }
     var isImporting by remember { mutableStateOf(false) }
 
     val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -68,7 +69,7 @@ fun HistoryScreen(
                 },
                 actions = {
                     IconButton(onClick = { importLauncher.launch("*/*") }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Importar")
+                        Icon(Icons.Default.BrowserUpdated, contentDescription = "Importar")
                     }
                     IconButton(onClick = {
                         val file = viewModel.exportHistoryToExcel(context)
@@ -90,7 +91,7 @@ fun HistoryScreen(
                             android.widget.Toast.makeText(context, "Error al exportar o no hay datos", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }) {
-                        Icon(Icons.Default.BrowserUpdated, contentDescription = "Exportar")
+                        Icon(Icons.Default.FileUpload, contentDescription = "Exportar")
                     }
                 }
             )
@@ -133,13 +134,14 @@ fun HistoryScreen(
                 }
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(uiState.saleList) { sale ->
+                    items(uiState.saleList, key = { it.id }) { sale ->
                         HistoryItemCard(
                             sale = sale,
                             onClick = { selectedSaleForEdit = sale }
                         )
                     }
                 }
+
             }
             
             if (uiState.saleList.isNotEmpty()) {

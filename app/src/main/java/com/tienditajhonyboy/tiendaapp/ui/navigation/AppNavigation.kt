@@ -1,6 +1,8 @@
 package com.tienditajhonyboy.tiendaapp.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -24,14 +26,51 @@ enum class AppDestinations(val route: String) {
 @Composable
 fun AppNavigation(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    externalUri: android.net.Uri? = null,
+    onExternalUriConsumed: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(externalUri) {
+        if (externalUri != null) {
+            val mimeType = context.contentResolver.getType(externalUri) ?: ""
+            val path = externalUri.path ?: ""
+            val encodedUri = java.net.URLEncoder.encode(externalUri.toString(), "UTF-8")
+
+            if (mimeType.contains("json") || path.endsWith(".json", ignoreCase = true)) {
+                navController.navigate("home?importUri=$encodedUri") {
+                    launchSingleTop = true
+                }
+            } else {
+                navController.navigate("history?importUri=$encodedUri") {
+                    launchSingleTop = true
+                }
+            }
+            onExternalUriConsumed()
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = AppDestinations.Home.route,
         modifier = modifier
     ) {
-        composable(AppDestinations.Home.route) {
+        composable(
+            route = "home?importUri={importUri}",
+            arguments = listOf(navArgument("importUri") {
+                nullable = true
+                defaultValue = null
+                type = NavType.StringType
+            })
+        ) { backStackEntry ->
+            val importUriString = backStackEntry.arguments?.getString("importUri")
+            val alreadyConsumed = backStackEntry.savedStateHandle.get<Boolean>("importUriConsumed") == true
+            val importUri = if (!alreadyConsumed && importUriString != null) {
+                backStackEntry.savedStateHandle["importUriConsumed"] = true
+                android.net.Uri.parse(java.net.URLDecoder.decode(importUriString, "UTF-8"))
+            } else null
+
             HomeScreen(
                 onNavigateToPOS = { productId ->
                     val route = if (productId != null) "pos?productId=$productId" else "pos"
@@ -39,7 +78,8 @@ fun AppNavigation(
                 },
                 onNavigateToNewProduct = { navController.navigate(AppDestinations.ProductNew.route) },
                 onNavigateToEditProduct = { productId -> navController.navigate("${AppDestinations.ProductEdit.route}/$productId") },
-                onNavigateToHistory = { navController.navigate(AppDestinations.History.route) }
+                onNavigateToHistory = { navController.navigate(AppDestinations.History.route) },
+                initialImportUri = importUri
             )
         }
         composable(
@@ -60,9 +100,24 @@ fun AppNavigation(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable(AppDestinations.History.route) {
+        composable(
+            route = "history?importUri={importUri}",
+            arguments = listOf(navArgument("importUri") {
+                nullable = true
+                defaultValue = null
+                type = NavType.StringType
+            })
+        ) { backStackEntry ->
+            val importUriString = backStackEntry.arguments?.getString("importUri")
+            val alreadyConsumed = backStackEntry.savedStateHandle.get<Boolean>("importUriConsumed") == true
+            val importUri = if (!alreadyConsumed && importUriString != null) {
+                backStackEntry.savedStateHandle["importUriConsumed"] = true
+                android.net.Uri.parse(java.net.URLDecoder.decode(importUriString, "UTF-8"))
+            } else null
+            
             HistoryScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                initialImportUri = importUri
             )
         }
         composable(

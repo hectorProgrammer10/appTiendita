@@ -4,12 +4,15 @@ import android.content.Context
 import com.tienditajhonyboy.tiendaapp.data.local.AppDatabase
 import com.tienditajhonyboy.tiendaapp.data.repository.ProductRepositoryImpl
 import com.tienditajhonyboy.tiendaapp.data.repository.SaleRepositoryImpl
+import com.tienditajhonyboy.tiendaapp.data.repository.WorkspaceRepositoryImpl
 import com.tienditajhonyboy.tiendaapp.domain.repository.ProductRepository
 import com.tienditajhonyboy.tiendaapp.domain.repository.SaleRepository
+import com.tienditajhonyboy.tiendaapp.domain.repository.WorkspaceRepository
 
 interface AppContainer {
     val productRepository: ProductRepository
     val saleRepository: SaleRepository
+    val workspaceRepository: WorkspaceRepository
 }
 
 class AppDataContainer(private val context: Context) : AppContainer {
@@ -19,4 +22,8 @@ class AppDataContainer(private val context: Context) : AppContainer {
     override val saleRepository: SaleRepository by lazy {
         SaleRepositoryImpl(AppDatabase.getDatabase(context).saleDao())
     }
+    override val workspaceRepository: WorkspaceRepository by lazy {
+        WorkspaceRepositoryImpl(AppDatabase.getDatabase(context).workspaceDao(), context)
+    }
 }
+

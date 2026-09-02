@@ -9,25 +9,36 @@ import com.tienditajhonyboy.tiendaapp.TiendaApplication
 object AppViewModelProvider {
     val Factory = viewModelFactory {
         initializer {
-            HomeViewModel(tiendaApplication().container.productRepository)
+            HomeViewModel(
+                tiendaApplication().container.productRepository,
+                tiendaApplication().container.workspaceRepository
+            )
         }
         initializer {
             POSViewModel(
                 tiendaApplication().container.productRepository,
-                tiendaApplication().container.saleRepository
+                tiendaApplication().container.saleRepository,
+                tiendaApplication().container.workspaceRepository
             )
         }
         initializer {
-            ProductNewViewModel(tiendaApplication().container.productRepository)
+            ProductNewViewModel(
+                tiendaApplication().container.productRepository,
+                tiendaApplication().container.workspaceRepository
+            )
         }
         initializer {
-            HistoryViewModel(tiendaApplication().container.saleRepository)
+            HistoryViewModel(
+                tiendaApplication().container.saleRepository,
+                tiendaApplication().container.workspaceRepository
+            )
         }
         initializer {
             ProductEditViewModel(tiendaApplication().container.productRepository)
         }
     }
 }
+
 
 fun CreationExtras.tiendaApplication(): TiendaApplication =
     (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as TiendaApplication)

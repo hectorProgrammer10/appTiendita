@@ -8,10 +8,14 @@ import com.tienditajhonyboy.tiendaapp.domain.model.Product
 import com.tienditajhonyboy.tiendaapp.domain.model.Sale
 import com.tienditajhonyboy.tiendaapp.domain.repository.ProductRepository
 import com.tienditajhonyboy.tiendaapp.domain.repository.SaleRepository
+import com.tienditajhonyboy.tiendaapp.domain.repository.WorkspaceRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -19,10 +23,15 @@ import java.util.UUID
 
 class POSViewModel(
     private val productRepository: ProductRepository,
-    private val saleRepository: SaleRepository
+    private val saleRepository: SaleRepository,
+    private val workspaceRepository: WorkspaceRepository
 ) : ViewModel() {
 
-    val productsUiState: StateFlow<List<Product>> = productRepository.getAllProducts()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val productsUiState: StateFlow<List<Product>> = workspaceRepository.getActiveWorkspaceId()
+        .flatMapLatest { workspaceId ->
+            productRepository.getProductsByWorkspace(workspaceId)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -69,18 +78,26 @@ class POSViewModel(
         val currentState = _uiState.value
         if (currentState.cartItems.isEmpty()) return
 
-        val sale = Sale(
-            id = UUID.randomUUID().toString(),
-            items = currentState.cartItems,
-            total = currentState.total,
-            paymentAmount = paymentAmount,
-            change = kotlin.math.max(0.0, paymentAmount - currentState.total),
-            paymentType = paymentType,
-            clientName = clientName,
-            date = System.currentTimeMillis()
-        )
-
         viewModelScope.launch {
+            val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
+
+            var uniqueId: String
+            do {
+                uniqueId = UUID.randomUUID().toString()
+            } while (saleRepository.getSaleById(uniqueId) != null)
+
+            val sale = Sale(
+                id = uniqueId,
+                workspaceId = activeWorkspaceId,
+                items = currentState.cartItems,
+                total = currentState.total,
+                paymentAmount = paymentAmount,
+                change = kotlin.math.max(0.0, paymentAmount - currentState.total),
+                paymentType = paymentType,
+                clientName = clientName,
+                date = System.currentTimeMillis()
+            )
+
             saleRepository.insertSale(sale)
             clearCart()
         }

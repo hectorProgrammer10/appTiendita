@@ -12,6 +12,9 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY createdAt DESC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
+    @Query("SELECT * FROM products WHERE workspaceId = :workspaceId ORDER BY createdAt DESC")
+    fun getProductsByWorkspace(workspaceId: String): Flow<List<ProductEntity>>
+
     @Query("SELECT * FROM products WHERE id = :id")
     suspend fun getProductById(id: String): ProductEntity?
 
@@ -21,6 +24,10 @@ interface ProductDao {
     @Query("DELETE FROM products WHERE id = :id")
     suspend fun deleteProduct(id: String)
 
+    @Query("DELETE FROM products WHERE workspaceId = :workspaceId")
+    suspend fun deleteProductsByWorkspace(workspaceId: String)
+
     @Update
     suspend fun updateProduct(product: ProductEntity)
 }
+

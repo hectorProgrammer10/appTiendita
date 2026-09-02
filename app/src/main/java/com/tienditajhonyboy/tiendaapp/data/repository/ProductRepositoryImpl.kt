@@ -15,6 +15,12 @@ class ProductRepositoryImpl(private val dao: ProductDao) : ProductRepository {
         }
     }
 
+    override fun getProductsByWorkspace(workspaceId: String): Flow<List<Product>> {
+        return dao.getProductsByWorkspace(workspaceId).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     override suspend fun getProductById(id: String): Product? {
         return dao.getProductById(id)?.toDomain()
     }
@@ -27,7 +33,12 @@ class ProductRepositoryImpl(private val dao: ProductDao) : ProductRepository {
         dao.deleteProduct(id)
     }
 
+    override suspend fun deleteProductsByWorkspace(workspaceId: String) {
+        dao.deleteProductsByWorkspace(workspaceId)
+    }
+
     override suspend fun updateProduct(product: Product) {
         dao.updateProduct(product.toEntity())
     }
 }
+

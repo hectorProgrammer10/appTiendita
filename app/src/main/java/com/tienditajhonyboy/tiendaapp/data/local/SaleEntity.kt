@@ -1,14 +1,23 @@
 package com.tienditajhonyboy.tiendaapp.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.tienditajhonyboy.tiendaapp.domain.model.CartItem
 import com.tienditajhonyboy.tiendaapp.domain.model.PaymentType
 import com.tienditajhonyboy.tiendaapp.domain.model.Sale
 
-@Entity(tableName = "sales")
+@Entity(
+    tableName = "sales",
+    indices = [
+        Index(value = ["workspaceId"]),
+        Index(value = ["workspaceId", "date"]),
+        Index(value = ["workspaceId", "paymentType"])
+    ]
+)
 data class SaleEntity(
     @PrimaryKey val id: String,
+    val workspaceId: String = "ws_default",
     val items: List<CartItem>,
     val total: Double,
     val paymentAmount: Double,
@@ -21,6 +30,7 @@ data class SaleEntity(
 fun SaleEntity.toDomain(): Sale {
     return Sale(
         id = id,
+        workspaceId = workspaceId,
         items = items,
         total = total,
         paymentAmount = paymentAmount,
@@ -34,6 +44,7 @@ fun SaleEntity.toDomain(): Sale {
 fun Sale.toEntity(): SaleEntity {
     return SaleEntity(
         id = id,
+        workspaceId = workspaceId,
         items = items,
         total = total,
         paymentAmount = paymentAmount,

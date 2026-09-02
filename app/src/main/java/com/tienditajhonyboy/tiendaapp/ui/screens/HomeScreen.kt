@@ -1,6 +1,5 @@
 package com.tienditajhonyboy.tiendaapp.ui.screens
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.FileUpload
@@ -42,22 +44,32 @@ fun HomeScreen(
     onNavigateToPOS: (String?) -> Unit,
     onNavigateToNewProduct: () -> Unit,
     onNavigateToEditProduct: (String) -> Unit,
-    onNavigateToHistory: () -> Unit
+    onNavigateToHistory: () -> Unit,
+    initialImportUri: android.net.Uri? = null
 ) {
     val uiState by viewModel.homeUiState.collectAsState()
+    val workspaces by viewModel.workspacesState.collectAsState()
+    val activeWorkspaceId by viewModel.activeWorkspaceIdState.collectAsState()
+
+    val activeWorkspace = remember(workspaces, activeWorkspaceId) {
+        workspaces.find { it.id == activeWorkspaceId } ?: workspaces.firstOrNull()
+    }
+    val activeWorkspaceName = activeWorkspace?.name ?: "Principal"
+
+    var showWorkspaceDropdown by remember { mutableStateOf(false) }
+    var showCreateWorkspaceDialog by remember { mutableStateOf(false) }
+    var showRenameWorkspaceDialog by remember { mutableStateOf(false) }
+    var newWorkspaceNameInput by remember { mutableStateOf("") }
+    var renameWorkspaceInput by remember { mutableStateOf("") }
+
     var productToDelete by remember { mutableStateOf<com.tienditajhonyboy.tiendaapp.domain.model.Product?>(null) }
     var selectedProductForAction by remember { mutableStateOf<com.tienditajhonyboy.tiendaapp.domain.model.Product?>(null) }
     
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("tienda_prefs", Context.MODE_PRIVATE) }
-    var storeName by remember { mutableStateOf(prefs.getString("store_name", "Tiendita") ?: "Tiendita") }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-    var editingName by remember { mutableStateOf("") }
-
     val scrollState = rememberScrollState()
 
-    var showImportProductsDialog by remember { mutableStateOf(false) }
-    var uriToImportProducts by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showImportProductsDialog by remember { mutableStateOf(initialImportUri != null) }
+    var uriToImportProducts by remember { mutableStateOf<android.net.Uri?>(initialImportUri) }
     var isImportingProducts by remember { mutableStateOf(false) }
 
     val importProductsLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -131,14 +143,61 @@ fun HomeScreen(
         )
     }
 
-    if (showEditNameDialog) {
+    if (showCreateWorkspaceDialog) {
         AlertDialog(
-            onDismissRequest = { showEditNameDialog = false },
-            title = { Text("Nombre de la Tienda") },
+            onDismissRequest = { showCreateWorkspaceDialog = false },
+            title = { Text("Crear Nuevo Espacio") },
+            text = {
+                Column {
+                    Text("Ingresa el nombre para el nuevo espacio de trabajo (máximo 3 espacios en total).")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newWorkspaceNameInput,
+                        onValueChange = { newWorkspaceNameInput = it },
+                        label = { Text("Nombre del Espacio") },
+                        placeholder = { Text("Ej. Pescadería, Sucursal 2...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newWorkspaceNameInput.isNotBlank()) {
+                            viewModel.createWorkspace(
+                                name = newWorkspaceNameInput,
+                                onSuccess = {
+                                    showCreateWorkspaceDialog = false
+                                    android.widget.Toast.makeText(context, "Espacio creado exitosamente", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { err ->
+                                    android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
+                    },
+                    enabled = newWorkspaceNameInput.isNotBlank()
+                ) {
+                    Text("Crear Espacio")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateWorkspaceDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    if (showRenameWorkspaceDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameWorkspaceDialog = false },
+            title = { Text("Editar Nombre del Espacio") },
             text = {
                 OutlinedTextField(
-                    value = editingName,
-                    onValueChange = { editingName = it },
+                    value = renameWorkspaceInput,
+                    onValueChange = { renameWorkspaceInput = it },
                     label = { Text("Nombre") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -147,18 +206,17 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (editingName.isNotBlank()) {
-                            storeName = editingName
-                            prefs.edit().putString("store_name", editingName).apply()
+                        if (renameWorkspaceInput.isNotBlank()) {
+                            viewModel.updateActiveWorkspaceName(renameWorkspaceInput)
+                            showRenameWorkspaceDialog = false
                         }
-                        showEditNameDialog = false
                     }
                 ) {
                     Text("Guardar")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showEditNameDialog = false }) {
+                TextButton(onClick = { showRenameWorkspaceDialog = false }) {
                     Text("Cancelar")
                 }
             }
@@ -171,7 +229,7 @@ fun HomeScreen(
             title = { Text("Importar Productos") },
             text = { 
                 Column {
-                    Text("¿Qué deseas hacer con el catálogo a importar?")
+                    Text("¿Qué deseas hacer con el catálogo a importar en este espacio?")
                     if (isImportingProducts) {
                         Spacer(modifier = Modifier.height(16.dp))
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
@@ -237,22 +295,125 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = storeName,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.wrapContentWidth()
+                ) {
+                    Box {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showWorkspaceDropdown = true }
+                                .padding(end = 4.dp)
+                        ) {
+                            Text(
+                                text = activeWorkspaceName,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    brush = Brush.horizontalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.secondary
+                                        )
+                                    )
+                                )
                             )
-                        )
-                    ),
-                    modifier = Modifier.clickable {
-                        editingName = storeName
-                        showEditNameDialog = true
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Desplegar Espacios",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showWorkspaceDropdown,
+                            onDismissRequest = { showWorkspaceDropdown = false }
+                        ) {
+                            Text(
+                                text = "Espacios de Trabajo (${workspaces.size}/3)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                            HorizontalDivider()
+
+                            workspaces.forEach { ws ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = ws.name,
+                                                fontWeight = if (ws.id == activeWorkspaceId) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (ws.id == activeWorkspaceId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (ws.id == activeWorkspaceId) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Activo",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        showWorkspaceDropdown = false
+                                        viewModel.selectWorkspace(ws.id)
+                                    }
+                                )
+                            }
+
+                            if (workspaces.size < 3) {
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Crear nuevo espacio",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showWorkspaceDropdown = false
+                                        newWorkspaceNameInput = ""
+                                        showCreateWorkspaceDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
-                )
+
+                    IconButton(
+                        onClick = {
+                            renameWorkspaceInput = activeWorkspaceName
+                            showRenameWorkspaceDialog = true
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editar nombre del espacio",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
                 Text(
                     text = "Panel de Administración",
                     style = MaterialTheme.typography.bodyMedium,
@@ -261,7 +422,7 @@ fun HomeScreen(
             }
             Row {
                 IconButton(onClick = { importProductsLauncher.launch("*/*") }) {
-                    Icon(Icons.Default.FileUpload, contentDescription = "Importar Productos")
+                    Icon(Icons.Default.BrowserUpdated, contentDescription = "Importar Productos")
                 }
                 IconButton(onClick = { 
                     viewModel.exportProductsBackup(context, onSuccess = { file ->
@@ -282,7 +443,7 @@ fun HomeScreen(
                         android.widget.Toast.makeText(context, err, android.widget.Toast.LENGTH_LONG).show()
                     })
                 }) {
-                    Icon(Icons.Default.BrowserUpdated, contentDescription = "Exportar Productos")
+                    Icon(Icons.Default.FileUpload, contentDescription = "Exportar Productos")
                 }
             }
         }
@@ -305,8 +466,6 @@ fun HomeScreen(
                 Text("Nuevo")
             }
         }
-        
-
         
         ProductCarousel(
             products = uiState.productList,
