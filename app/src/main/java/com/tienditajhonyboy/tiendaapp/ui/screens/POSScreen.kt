@@ -1,8 +1,8 @@
 package com.tienditajhonyboy.tiendaapp.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,9 +68,13 @@ fun POSScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
         ) {
-            Text("Productos disponibles", modifier = Modifier.padding(16.dp))
+            Text(
+                text = "Productos disponibles",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
             ProductCarousel(
                 products = products,
                 onProductClick = { product ->
@@ -80,25 +85,43 @@ fun POSScreen(
                 onAddNewProduct = { }
             )
 
+            Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider()
 
-            val cartScrollState = rememberScrollState()
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp)
-                    .verticalScroll(cartScrollState)
-                    .padding(horizontal = 16.dp)
-            ) {
-                uiState.cartItems.forEachIndexed { index, item ->
-                    SaleItemCard(
-                        item = item, 
-                        onRemove = { viewModel.removeFromCart(index) }
+            if (uiState.cartItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "El carrito está vacío.\nSelecciona un producto para agregarlo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    itemsIndexed(
+                        items = uiState.cartItems,
+                        key = { index, item -> "${item.productId}_$index" }
+                    ) { index, item ->
+                        SaleItemCard(
+                            item = item, 
+                            onRemove = { viewModel.removeFromCart(index) }
+                        )
+                    }
+                }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
 
             Surface(
                 tonalElevation = 8.dp,
@@ -107,7 +130,8 @@ fun POSScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                          modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                         horizontalArrangement = Arrangement.SpaceBetween
+                         horizontalArrangement = Arrangement.SpaceBetween,
+                         verticalAlignment = Alignment.CenterVertically
                     ) {
                          Text("Total", style = MaterialTheme.typography.headlineSmall)
                          Text("$${String.format("%.2f", uiState.total)}", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -143,10 +167,11 @@ fun POSScreen(
                                 viewModel.clearCart()
                                 Toast.makeText(context, "Carrito limpiado", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), // Use error instead of Teal for clearing cart? Wait, let's keep it Teal: MaterialTheme.colorScheme.secondary
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(50.dp)
+                            modifier = Modifier.size(50.dp),
+                            enabled = uiState.cartItems.isNotEmpty()
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = "Limpiar", tint = androidx.compose.ui.graphics.Color.White)
                         }

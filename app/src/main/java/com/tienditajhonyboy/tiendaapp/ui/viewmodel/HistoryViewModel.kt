@@ -35,8 +35,44 @@ class HistoryViewModel(
 
     val historyUiState: StateFlow<HistoryUiState> = 
         combine(activeWorkspaceSales, _filter) { sales, filter ->
-            val filtered = if (filter == null) sales else sales.filter { it.paymentType == filter }
-            HistoryUiState(filtered)
+            var totalContado = 0.0
+            var countContado = 0
+            var totalPendiente = 0.0
+            var countPendiente = 0
+            var totalCancelado = 0.0
+            var countCancelado = 0
+
+            val filtered = mutableListOf<Sale>()
+            for (sale in sales) {
+                when (sale.paymentType) {
+                    PaymentType.contado -> {
+                        totalContado += sale.total
+                        countContado++
+                    }
+                    PaymentType.pendiente -> {
+                        totalPendiente += sale.total
+                        countPendiente++
+                    }
+                    PaymentType.cancelado -> {
+                        totalCancelado += sale.total
+                        countCancelado++
+                    }
+                }
+                if (filter == null || sale.paymentType == filter) {
+                    filtered.add(sale)
+                }
+            }
+
+            val summary = SalesSummary(
+                totalContado = totalContado,
+                countContado = countContado,
+                totalPendiente = totalPendiente,
+                countPendiente = countPendiente,
+                totalCancelado = totalCancelado,
+                countCancelado = countCancelado
+            )
+
+            HistoryUiState(saleList = filtered, summary = summary)
         }
         .stateIn(
             scope = viewModelScope,
@@ -67,52 +103,67 @@ class HistoryViewModel(
         }
     }
 
-    fun exportHistoryToExcel(context: android.content.Context): java.io.File? {
-        val sales = historyUiState.value.saleList
-        if (sales.isEmpty()) return null
+    fun exportHistoryToExcel(
+        context: android.content.Context,
+        onSuccess: (java.io.File) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val sales = historyUiState.value.saleList
+                if (sales.isEmpty()) {
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        onError("No hay ventas para exportar.")
+                    }
+                    return@launch
+                }
 
-        try {
-            val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
-            val sheet = workbook.createSheet("Ventas")
-            
-            val headerRow = sheet.createRow(0)
-            val headers = listOf("ID", "Fecha_Texto", "Fecha_Timestamp", "Cliente", "Total", "Monto_Recibido", "Cambio", "Estado", "Resumen_Productos", "Datos_Raw_Productos")
-            headers.forEachIndexed { index, title ->
-                headerRow.createCell(index).setCellValue(title)
+                val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
+                val sheet = workbook.createSheet("Ventas")
+                
+                val headerRow = sheet.createRow(0)
+                val headers = listOf("ID", "Fecha_Texto", "Fecha_Timestamp", "Cliente", "Total", "Monto_Recibido", "Cambio", "Estado", "Resumen_Productos", "Datos_Raw_Productos")
+                headers.forEachIndexed { index, title ->
+                    headerRow.createCell(index).setCellValue(title)
+                }
+
+                val gson = com.google.gson.Gson()
+                val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+                sales.forEachIndexed { index, sale ->
+                    val row = sheet.createRow(index + 1)
+                    row.createCell(0).setCellValue(sale.id)
+                    row.createCell(1).setCellValue(dateFormat.format(java.util.Date(sale.date)))
+                    row.createCell(2).setCellValue(sale.date.toString()) // Written as string to avoid Double numeric issues
+                    row.createCell(3).setCellValue(sale.clientName ?: "-")
+                    
+                    row.createCell(4).setCellValue(sale.total)
+                    row.createCell(5).setCellValue(sale.paymentAmount)
+                    row.createCell(6).setCellValue(sale.change)
+                    row.createCell(7).setCellValue(sale.paymentType.name.uppercase())
+                    
+                    val items = sale.items.joinToString("; ") { "${it.quantity} ${it.unit} ${it.productName}" }
+                    row.createCell(8).setCellValue(items)
+                    
+                    val rawData = gson.toJson(sale.items)
+                    row.createCell(9).setCellValue(rawData)
+                }
+
+                val fileName = "historial_ventas_${System.currentTimeMillis()}.xlsx"
+                val file = java.io.File(context.cacheDir, fileName)
+                java.io.FileOutputStream(file).use { fileOut ->
+                    workbook.write(fileOut)
+                }
+                workbook.close()
+
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onSuccess(file)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onError("Error al exportar: ${e.message}")
+                }
             }
-
-            val gson = com.google.gson.Gson()
-            val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
-            sales.forEachIndexed { index, sale ->
-                val row = sheet.createRow(index + 1)
-                row.createCell(0).setCellValue(sale.id)
-                row.createCell(1).setCellValue(dateFormat.format(java.util.Date(sale.date)))
-                row.createCell(2).setCellValue(sale.date.toString()) // Written as string to avoid Double numeric issues
-                row.createCell(3).setCellValue(sale.clientName ?: "-")
-                
-                row.createCell(4).setCellValue(sale.total)
-                row.createCell(5).setCellValue(sale.paymentAmount)
-                row.createCell(6).setCellValue(sale.change)
-                row.createCell(7).setCellValue(sale.paymentType.name.uppercase())
-                
-                val items = sale.items.joinToString("; ") { "${it.quantity} ${it.unit} ${it.productName}" }
-                row.createCell(8).setCellValue(items)
-                
-                val rawData = gson.toJson(sale.items)
-                row.createCell(9).setCellValue(rawData)
-            }
-
-            val fileName = "historial_ventas_${System.currentTimeMillis()}.xlsx"
-            val file = java.io.File(context.cacheDir, fileName)
-            val fileOut = java.io.FileOutputStream(file)
-            workbook.write(fileOut)
-            fileOut.close()
-            workbook.close()
-            
-            return file
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
         }
     }
 
@@ -227,4 +278,16 @@ class HistoryViewModel(
     }
 }
 
-data class HistoryUiState(val saleList: List<Sale> = listOf())
+data class SalesSummary(
+    val totalContado: Double = 0.0,
+    val countContado: Int = 0,
+    val totalPendiente: Double = 0.0,
+    val countPendiente: Int = 0,
+    val totalCancelado: Double = 0.0,
+    val countCancelado: Int = 0
+)
+
+data class HistoryUiState(
+    val saleList: List<Sale> = listOf(),
+    val summary: SalesSummary = SalesSummary()
+)

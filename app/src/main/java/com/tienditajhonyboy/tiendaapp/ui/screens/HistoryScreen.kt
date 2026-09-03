@@ -48,6 +48,7 @@ fun HistoryScreen(
     var showImportDialog by remember { mutableStateOf(initialImportUri != null) }
     var uriToImport by remember { mutableStateOf<android.net.Uri?>(initialImportUri) }
     var isImporting by remember { mutableStateOf(false) }
+    var isExporting by remember { mutableStateOf(false) }
 
     val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -71,27 +72,43 @@ fun HistoryScreen(
                     IconButton(onClick = { importLauncher.launch("*/*") }) {
                         Icon(Icons.Default.BrowserUpdated, contentDescription = "Importar")
                     }
-                    IconButton(onClick = {
-                        val file = viewModel.exportHistoryToExcel(context)
-                        if (file != null) {
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
+                    IconButton(
+                        onClick = {
+                            isExporting = true
+                            viewModel.exportHistoryToExcel(
+                                context = context,
+                                onSuccess = { file ->
+                                    isExporting = false
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, "Exportar Ventas Excel")
+                                    context.startActivity(shareIntent)
+                                },
+                                onError = { errorMsg ->
+                                    isExporting = false
+                                    android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             )
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            val shareIntent = Intent.createChooser(sendIntent, "Exportar Ventas Excel")
-                            context.startActivity(shareIntent)
+                        },
+                        enabled = !isExporting && uiState.saleList.isNotEmpty()
+                    ) {
+                        if (isExporting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            android.widget.Toast.makeText(context, "Error al exportar o no hay datos", android.widget.Toast.LENGTH_SHORT).show()
+                            Icon(Icons.Default.FileUpload, contentDescription = "Exportar")
                         }
-                    }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "Exportar")
                     }
                 }
             )
@@ -145,7 +162,6 @@ fun HistoryScreen(
             }
             
             if (uiState.saleList.isNotEmpty()) {
-                val totalContado = uiState.saleList.filter { it.paymentType == PaymentType.contado }.sumOf { it.total }
                 ExtendedFloatingActionButton(
                     onClick = { showSummaryDialog = true },
                     modifier = Modifier
@@ -154,22 +170,13 @@ fun HistoryScreen(
                     containerColor = SuccessGreen,
                     contentColor = androidx.compose.ui.graphics.Color.White
                 ) {
-                    Text("$${String.format("%.2f", totalContado)}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    Text("$${String.format("%.2f", uiState.summary.totalContado)}", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             }
         }
 
         if (showSummaryDialog) {
-            val list = uiState.saleList
-            
-            val totalContado = list.filter { it.paymentType == PaymentType.contado }.sumOf { it.total }
-            val countContado = list.filter { it.paymentType == PaymentType.contado }.size
-            
-            val totalPendiente = list.filter { it.paymentType == PaymentType.pendiente }.sumOf { it.total }
-            val countPendiente = list.filter { it.paymentType == PaymentType.pendiente }.size
-            
-            val totalCancelado = list.filter { it.paymentType == PaymentType.cancelado }.sumOf { it.total }
-            val countCancelado = list.filter { it.paymentType == PaymentType.cancelado }.size
+            val summary = uiState.summary
 
             AlertDialog(
                 onDismissRequest = { showSummaryDialog = false },
@@ -182,8 +189,8 @@ fun HistoryScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Contado ($countContado)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = SuccessGreen)
-                                Text("Total: $${String.format("%.2f", totalContado)}", style = MaterialTheme.typography.titleMedium, color = SuccessGreen)
+                                Text("Contado (${summary.countContado})", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = SuccessGreen)
+                                Text("Total: $${String.format("%.2f", summary.totalContado)}", style = MaterialTheme.typography.titleMedium, color = SuccessGreen)
                             }
                         }
                         Surface(
@@ -192,8 +199,8 @@ fun HistoryScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Pendiente ($countPendiente)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = WarningOrange)
-                                Text("Total: $${String.format("%.2f", totalPendiente)}", style = MaterialTheme.typography.titleMedium, color = WarningOrange)
+                                Text("Pendiente (${summary.countPendiente})", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = WarningOrange)
+                                Text("Total: $${String.format("%.2f", summary.totalPendiente)}", style = MaterialTheme.typography.titleMedium, color = WarningOrange)
                             }
                         }
                         Surface(
@@ -202,8 +209,8 @@ fun HistoryScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Cancelado ($countCancelado)", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = DangerRed)
-                                Text("Total: $${String.format("%.2f", totalCancelado)}", style = MaterialTheme.typography.titleMedium, color = DangerRed)
+                                Text("Cancelado (${summary.countCancelado})", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = DangerRed)
+                                Text("Total: $${String.format("%.2f", summary.totalCancelado)}", style = MaterialTheme.typography.titleMedium, color = DangerRed)
                             }
                         }
                     }

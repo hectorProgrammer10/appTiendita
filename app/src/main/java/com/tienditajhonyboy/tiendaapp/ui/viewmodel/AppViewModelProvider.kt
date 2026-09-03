@@ -36,6 +36,14 @@ object AppViewModelProvider {
         initializer {
             ProductEditViewModel(tiendaApplication().container.productRepository)
         }
+        initializer {
+            AgentViewModel(
+                agentRepository = tiendaApplication().container.agentRepository,
+                saleRepository = tiendaApplication().container.saleRepository,
+                workspaceRepository = tiendaApplication().container.workspaceRepository,
+                apiClient = com.tienditajhonyboy.tiendaapp.network.AgentApiClient(tiendaApplication())
+            )
+        }
     }
 }
 

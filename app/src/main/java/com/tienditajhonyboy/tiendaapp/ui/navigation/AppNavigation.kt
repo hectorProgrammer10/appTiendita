@@ -20,7 +20,8 @@ enum class AppDestinations(val route: String) {
     POS("pos"),
     ProductNew("product_new"),
     ProductEdit("product_edit"),
-    History("history")
+    History("history"),
+    Agent("agent")
 }
 
 @Composable
@@ -79,6 +80,7 @@ fun AppNavigation(
                 onNavigateToNewProduct = { navController.navigate(AppDestinations.ProductNew.route) },
                 onNavigateToEditProduct = { productId -> navController.navigate("${AppDestinations.ProductEdit.route}/$productId") },
                 onNavigateToHistory = { navController.navigate(AppDestinations.History.route) },
+                onNavigateToAgent = { navController.navigate(AppDestinations.Agent.route) },
                 initialImportUri = importUri
             )
         }
@@ -127,6 +129,11 @@ fun AppNavigation(
             val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
             ProductEditScreen(
                 productId = productId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(AppDestinations.Agent.route) {
+            com.tienditajhonyboy.tiendaapp.ui.screens.AgentScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
