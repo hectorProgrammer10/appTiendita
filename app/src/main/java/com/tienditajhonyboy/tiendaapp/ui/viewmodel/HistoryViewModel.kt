@@ -96,30 +96,57 @@ class HistoryViewModel(
         }
     }
 
-    fun clearHistory() {
+    fun deleteSales(type: PaymentType?, onComplete: (() -> Unit)? = null) {
         viewModelScope.launch {
             val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
-            saleRepository.deleteSalesByWorkspace(activeWorkspaceId)
+            if (type == null) {
+                saleRepository.deleteSalesByWorkspace(activeWorkspaceId)
+            } else {
+                saleRepository.deleteSalesByWorkspaceAndType(activeWorkspaceId, type)
+            }
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                onComplete?.invoke()
+            }
         }
+    }
+
+    fun clearHistory() {
+        deleteSales(null)
     }
 
     fun exportHistoryToExcel(
         context: android.content.Context,
+        filterType: PaymentType? = null,
         onSuccess: (java.io.File) -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val sales = historyUiState.value.saleList
+                val activeWorkspaceId = workspaceRepository.getActiveWorkspaceId().first()
+                val allSales = saleRepository.getSalesByWorkspace(activeWorkspaceId).first()
+                val sales = if (filterType == null) allSales else allSales.filter { it.paymentType == filterType }
+                
                 if (sales.isEmpty()) {
+                    val filterLabel = when (filterType) {
+                        PaymentType.contado -> "de contado"
+                        PaymentType.pendiente -> "pendientes"
+                        PaymentType.cancelado -> "canceladas"
+                        null -> "registradas"
+                    }
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        onError("No hay ventas para exportar.")
+                        onError("No hay ventas $filterLabel para exportar.")
                     }
                     return@launch
                 }
 
                 val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
-                val sheet = workbook.createSheet("Ventas")
+                val sheetName = when (filterType) {
+                    PaymentType.contado -> "Ventas Contado"
+                    PaymentType.pendiente -> "Ventas Pendiente"
+                    PaymentType.cancelado -> "Ventas Canceladas"
+                    null -> "Todas las Ventas"
+                }
+                val sheet = workbook.createSheet(sheetName)
                 
                 val headerRow = sheet.createRow(0)
                 val headers = listOf("ID", "Fecha_Texto", "Fecha_Timestamp", "Cliente", "Total", "Monto_Recibido", "Cambio", "Estado", "Resumen_Productos", "Datos_Raw_Productos")
@@ -148,7 +175,8 @@ class HistoryViewModel(
                     row.createCell(9).setCellValue(rawData)
                 }
 
-                val fileName = "historial_ventas_${System.currentTimeMillis()}.xlsx"
+                val suffix = filterType?.name ?: "todas"
+                val fileName = "historial_ventas_${suffix}_${System.currentTimeMillis()}.xlsx"
                 val file = java.io.File(context.cacheDir, fileName)
                 java.io.FileOutputStream(file).use { fileOut ->
                     workbook.write(fileOut)

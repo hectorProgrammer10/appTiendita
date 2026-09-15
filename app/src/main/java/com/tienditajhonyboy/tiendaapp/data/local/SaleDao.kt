@@ -31,6 +31,9 @@ interface SaleDao {
 
     @Query("DELETE FROM sales WHERE workspaceId = :workspaceId")
     suspend fun deleteSalesByWorkspace(workspaceId: String)
+
+    @Query("DELETE FROM sales WHERE workspaceId = :workspaceId AND paymentType = :paymentType")
+    suspend fun deleteSalesByWorkspaceAndType(workspaceId: String, paymentType: com.tienditajhonyboy.tiendaapp.domain.model.PaymentType)
 }
 
 

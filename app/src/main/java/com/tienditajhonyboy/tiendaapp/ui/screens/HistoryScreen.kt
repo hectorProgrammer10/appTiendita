@@ -1,14 +1,17 @@
 package com.tienditajhonyboy.tiendaapp.ui.screens
 
 import android.content.Intent
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrowserUpdated
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,18 +20,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tienditajhonyboy.tiendaapp.domain.model.CartItem
 import com.tienditajhonyboy.tiendaapp.domain.model.PaymentType
 import com.tienditajhonyboy.tiendaapp.domain.model.Sale
-import com.tienditajhonyboy.tiendaapp.domain.model.CartItem
 import com.tienditajhonyboy.tiendaapp.domain.model.UnitType
+import com.tienditajhonyboy.tiendaapp.ui.theme.DangerRed
+import com.tienditajhonyboy.tiendaapp.ui.theme.SuccessGreen
+import com.tienditajhonyboy.tiendaapp.ui.theme.WarningOrange
 import com.tienditajhonyboy.tiendaapp.ui.viewmodel.AppViewModelProvider
 import com.tienditajhonyboy.tiendaapp.ui.viewmodel.HistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.tienditajhonyboy.tiendaapp.ui.theme.SuccessGreen
-import com.tienditajhonyboy.tiendaapp.ui.theme.WarningOrange
-import com.tienditajhonyboy.tiendaapp.ui.theme.DangerRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +44,15 @@ fun HistoryScreen(
     val currentFilter by viewModel.filter.collectAsState()
     val context = LocalContext.current
 
-    var showDeleteAllDialog by remember { mutableStateOf(false) }
+    val totalSalesCount = uiState.summary.countContado + uiState.summary.countPendiente + uiState.summary.countCancelado
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var selectedDeleteOption by remember { mutableStateOf<PaymentType?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    var showExportDialog by remember { mutableStateOf(false) }
+    var selectedExportOption by remember { mutableStateOf<PaymentType?>(null) }
+
     var selectedSaleForEdit by remember { mutableStateOf<Sale?>(null) }
     var showSummaryDialog by remember { mutableStateOf(false) }
     
@@ -74,32 +85,10 @@ fun HistoryScreen(
                     }
                     IconButton(
                         onClick = {
-                            isExporting = true
-                            viewModel.exportHistoryToExcel(
-                                context = context,
-                                onSuccess = { file ->
-                                    isExporting = false
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        file
-                                    )
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    }
-                                    val shareIntent = Intent.createChooser(sendIntent, "Exportar Ventas Excel")
-                                    context.startActivity(shareIntent)
-                                },
-                                onError = { errorMsg ->
-                                    isExporting = false
-                                    android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                            selectedExportOption = null
+                            showExportDialog = true
                         },
-                        enabled = !isExporting && uiState.saleList.isNotEmpty()
+                        enabled = !isExporting && totalSalesCount > 0
                     ) {
                         if (isExporting) {
                             CircularProgressIndicator(
@@ -114,13 +103,16 @@ fun HistoryScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.saleList.isNotEmpty()) {
+            if (totalSalesCount > 0) {
                 FloatingActionButton(
-                    onClick = { showDeleteAllDialog = true },
+                    onClick = {
+                        selectedDeleteOption = null
+                        showDeleteDialog = true
+                    },
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Borrar Todo")
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar Historial")
                 }
             }
         }
@@ -130,6 +122,7 @@ fun HistoryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -147,6 +140,11 @@ fun HistoryScreen(
                         selected = currentFilter == PaymentType.pendiente,
                         onClick = { viewModel.setFilter(PaymentType.pendiente) },
                         label = { Text("Pendiente") }
+                    )
+                    FilterChip(
+                        selected = currentFilter == PaymentType.cancelado,
+                        onClick = { viewModel.setFilter(PaymentType.cancelado) },
+                        label = { Text("Cancelado") }
                     )
                 }
 
@@ -223,24 +221,220 @@ fun HistoryScreen(
             )
         }
 
-        if (showDeleteAllDialog) {
+        if (showDeleteDialog) {
+            val summary = uiState.summary
+            val countForSelected = when (selectedDeleteOption) {
+                null -> summary.countContado + summary.countPendiente + summary.countCancelado
+                PaymentType.contado -> summary.countContado
+                PaymentType.pendiente -> summary.countPendiente
+                PaymentType.cancelado -> summary.countCancelado
+            }
+
             AlertDialog(
-                onDismissRequest = { showDeleteAllDialog = false },
-                title = { Text("¿Eliminar Historial?") },
-                text = { Text("Estás a punto de borrar todas las ventas. Esta acción no se puede deshacer.") },
+                onDismissRequest = { showDeleteDialog = false },
+                icon = {
+                    Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                title = { Text("Eliminar Historial", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Selecciona qué registros deseas eliminar:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        val totalCount = summary.countContado + summary.countPendiente + summary.countCancelado
+                        HistorySelectionOptionRow(
+                            title = "Todo el historial",
+                            subtitle = "$totalCount ventas en total",
+                            selected = selectedDeleteOption == null,
+                            onClick = { selectedDeleteOption = null }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Contado",
+                            subtitle = "${summary.countContado} ventas ($${String.format("%.2f", summary.totalContado)})",
+                            selected = selectedDeleteOption == PaymentType.contado,
+                            accentColor = SuccessGreen,
+                            onClick = { selectedDeleteOption = PaymentType.contado }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Pendiente",
+                            subtitle = "${summary.countPendiente} ventas ($${String.format("%.2f", summary.totalPendiente)})",
+                            selected = selectedDeleteOption == PaymentType.pendiente,
+                            accentColor = WarningOrange,
+                            onClick = { selectedDeleteOption = PaymentType.pendiente }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Cancelado",
+                            subtitle = "${summary.countCancelado} ventas ($${String.format("%.2f", summary.totalCancelado)})",
+                            selected = selectedDeleteOption == PaymentType.cancelado,
+                            accentColor = DangerRed,
+                            onClick = { selectedDeleteOption = PaymentType.cancelado }
+                        )
+                    }
+                },
                 confirmButton = {
-                    TextButton(
+                    Button(
                         onClick = {
-                            viewModel.clearHistory()
-                            showDeleteAllDialog = false
+                            showDeleteDialog = false
+                            showDeleteConfirmDialog = true
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        enabled = countForSelected > 0,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Eliminar Todo")
+                        Text("Continuar")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteAllDialog = false }) {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        if (showDeleteConfirmDialog) {
+            val optionName = when (selectedDeleteOption) {
+                null -> "TODO el historial"
+                PaymentType.contado -> "las ventas de CONTADO"
+                PaymentType.pendiente -> "las ventas PENDIENTES"
+                PaymentType.cancelado -> "las ventas CANCELADAS"
+            }
+
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmDialog = false },
+                icon = {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                },
+                title = { Text("¿Confirmar Eliminación?") },
+                text = {
+                    Text(
+                        "Estás a punto de eliminar permanentemente $optionName. Esta acción NO se puede deshacer.\n\n¿Deseas proceder?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val filterToDelete = selectedDeleteOption
+                            showDeleteConfirmDialog = false
+                            viewModel.deleteSales(filterToDelete) {
+                                android.widget.Toast.makeText(context, "Ventas eliminadas correctamente", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Sí, Eliminar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        if (showExportDialog) {
+            val summary = uiState.summary
+            val countForSelected = when (selectedExportOption) {
+                null -> summary.countContado + summary.countPendiente + summary.countCancelado
+                PaymentType.contado -> summary.countContado
+                PaymentType.pendiente -> summary.countPendiente
+                PaymentType.cancelado -> summary.countCancelado
+            }
+
+            AlertDialog(
+                onDismissRequest = { showExportDialog = false },
+                icon = {
+                    Icon(Icons.Default.FileUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                },
+                title = { Text("Exportar a Excel", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Selecciona qué ventas deseas exportar:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        val totalCount = summary.countContado + summary.countPendiente + summary.countCancelado
+                        HistorySelectionOptionRow(
+                            title = "Todo el historial",
+                            subtitle = "$totalCount ventas en total",
+                            selected = selectedExportOption == null,
+                            onClick = { selectedExportOption = null }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Contado",
+                            subtitle = "${summary.countContado} ventas ($${String.format("%.2f", summary.totalContado)})",
+                            selected = selectedExportOption == PaymentType.contado,
+                            accentColor = SuccessGreen,
+                            onClick = { selectedExportOption = PaymentType.contado }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Pendiente",
+                            subtitle = "${summary.countPendiente} ventas ($${String.format("%.2f", summary.totalPendiente)})",
+                            selected = selectedExportOption == PaymentType.pendiente,
+                            accentColor = WarningOrange,
+                            onClick = { selectedExportOption = PaymentType.pendiente }
+                        )
+                        
+                        HistorySelectionOptionRow(
+                            title = "Solo Cancelado",
+                            subtitle = "${summary.countCancelado} ventas ($${String.format("%.2f", summary.totalCancelado)})",
+                            selected = selectedExportOption == PaymentType.cancelado,
+                            accentColor = DangerRed,
+                            onClick = { selectedExportOption = PaymentType.cancelado }
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val filterToExport = selectedExportOption
+                            showExportDialog = false
+                            isExporting = true
+                            viewModel.exportHistoryToExcel(
+                                context = context,
+                                filterType = filterToExport,
+                                onSuccess = { file ->
+                                    isExporting = false
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, "Exportar Ventas Excel")
+                                    context.startActivity(shareIntent)
+                                },
+                                onError = { errorMsg ->
+                                    isExporting = false
+                                    android.widget.Toast.makeText(context, errorMsg, android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        },
+                        enabled = countForSelected > 0
+                    ) {
+                        Text("Exportar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExportDialog = false }) {
                         Text("Cancelar")
                     }
                 }
@@ -379,6 +573,60 @@ fun HistoryScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun HistorySelectionOptionRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    accentColor: androidx.compose.ui.graphics.Color? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+        },
+        border = if (selected) {
+            androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+        } else {
+            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = null,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = accentColor ?: MaterialTheme.colorScheme.primary
+                )
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = accentColor ?: MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

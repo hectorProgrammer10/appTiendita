@@ -30,7 +30,6 @@ class SaleRepositoryImpl(private val dao: SaleDao) : SaleRepository {
         dao.insertSale(sale.toEntity())
     }
 
-
     override suspend fun updateSaleStatus(id: String, status: PaymentType) {
         dao.updateSaleStatus(id, status)
     }
@@ -45,5 +44,9 @@ class SaleRepositoryImpl(private val dao: SaleDao) : SaleRepository {
 
     override suspend fun deleteSalesByWorkspace(workspaceId: String) {
         dao.deleteSalesByWorkspace(workspaceId)
+    }
+
+    override suspend fun deleteSalesByWorkspaceAndType(workspaceId: String, paymentType: PaymentType) {
+        dao.deleteSalesByWorkspaceAndType(workspaceId, paymentType)
     }
 }

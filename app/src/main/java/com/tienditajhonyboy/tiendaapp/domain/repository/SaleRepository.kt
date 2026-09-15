@@ -12,6 +12,7 @@ interface SaleRepository {
     suspend fun deleteSale(id: String)
     suspend fun deleteAllSales()
     suspend fun deleteSalesByWorkspace(workspaceId: String)
+    suspend fun deleteSalesByWorkspaceAndType(workspaceId: String, paymentType: com.tienditajhonyboy.tiendaapp.domain.model.PaymentType)
 }
 
 
